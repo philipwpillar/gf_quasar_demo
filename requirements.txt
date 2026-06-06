@@ -1,0 +1,16 @@
+# ── GravitonForge Quasar demo — backend dependencies ──
+# Python 3.11+
+
+# API gateway + validated boundaries
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+pydantic>=2.6,<3.0
+pydantic-settings>=2.2,<3.0
+
+# Crypto (REAL): Ed25519 in software; signing step swaps onto a secure element
+# without changing the protocol. Only key custody changes.
+cryptography>=42.0,<46.0
+
+# Testing (ledger + attestation core carry real coverage)
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0          # FastAPI TestClient transport
