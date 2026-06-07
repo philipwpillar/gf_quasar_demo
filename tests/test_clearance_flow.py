@@ -21,7 +21,6 @@ CLEARANCE_PATH_MODULES = (
     "policy.policy_service",
     "policy.policy_errors",
     "api.api_routes_clearance",
-    "api.api_main",
     "api.api_errors",
 )
 

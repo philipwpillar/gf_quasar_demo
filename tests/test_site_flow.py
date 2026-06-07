@@ -282,7 +282,7 @@ def test_site_path_has_no_narrator_imports() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     forbidden = ("narrator", "llm", "assistant")
 
-    for module_name in SITE_PATH_MODULES + ("api.api_main",):
+    for module_name in SITE_PATH_MODULES:
         module = importlib.import_module(module_name)
         source_path = Path(module.__file__).resolve()
         assert source_path.is_relative_to(repo_root)

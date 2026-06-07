@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from attestation import AttestationError, DuplicateEnrolmentError, UnknownModuleError
+from corpus import CorpusError, DanglingTelemetryError
 from ledger import ChainBrokenError, LedgerError
 from policy import ClearanceError, MissingModuleSignerError
 from quasar_site import RobotCompositionNotFoundError, RobotIdMismatchError, SiteError
@@ -69,6 +70,28 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=400,
             content={"error": "clearance_error", "message": str(exc)},
+        )
+
+    @app.exception_handler(DanglingTelemetryError)
+    async def dangling_telemetry_handler(
+        _request: Request, exc: DanglingTelemetryError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "dangling_telemetry",
+                "message": str(exc),
+                "attestation_ref": exc.attestation_ref,
+            },
+        )
+
+    @app.exception_handler(CorpusError)
+    async def corpus_error_handler(
+        _request: Request, exc: CorpusError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "corpus_error", "message": str(exc)},
         )
 
     @app.exception_handler(RobotCompositionNotFoundError)

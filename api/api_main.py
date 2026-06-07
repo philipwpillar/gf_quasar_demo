@@ -14,7 +14,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from attestation import AttestationService, SoftwareEd25519Signer
+from corpus import CorpusService
 from ledger import Ledger
+from narrator import NarratorService
 from policy import ClearanceService
 from bootstrap_site_package import ensure_quasar_site_package
 
@@ -24,7 +26,9 @@ from quasar_site import SiteService
 from api.api_errors import register_exception_handlers
 from api.api_routes_attestation import router as attestation_router
 from api.api_routes_clearance import router as clearance_router
+from api.api_routes_corpus import router as corpus_router
 from api.api_routes_ledger import router as ledger_router
+from api.api_routes_narrator import router as narrator_router
 from api.api_routes_site import router as site_router
 
 
@@ -63,6 +67,8 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     clearance = ClearanceService(ledger, attestation, authority_signer)
     site_authority_signer = _load_site_authority_signer()
     site = SiteService(ledger, attestation, site_authority_signer)
+    corpus = CorpusService(ledger)
+    narrator = NarratorService(ledger)
 
     # Demo key management: module signers created at enrol time in process memory.
     # Real deployment uses secure elements per the Signer swap — private keys are
@@ -71,6 +77,8 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     app.state.attestation = attestation
     app.state.clearance = clearance
     app.state.site = site
+    app.state.corpus = corpus
+    app.state.narrator = narrator
     app.state.module_signers: dict[str, SoftwareEd25519Signer] = {}
     app.state.new_module_signer = SoftwareEd25519Signer
 
@@ -91,6 +99,8 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     app.include_router(clearance_router)
     app.include_router(site_router)
     app.include_router(ledger_router)
+    app.include_router(corpus_router)
+    app.include_router(narrator_router)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
