@@ -6,3 +6,33 @@ ATECC608 / TPM 2.0 dev board without changing the protocol.
 We claim a real secure element and a real attestation protocol.
 We do NOT claim a full hardware root-of-trust.
 """
+
+from attestation.attestation_core import issue_challenge, verify_response
+from attestation.attestation_errors import (
+    AttestationError,
+    DuplicateEnrolmentError,
+    UnknownModuleError,
+)
+from attestation.attestation_models import (
+    AttestationReason,
+    AttestationResult,
+    Challenge,
+    ModuleIdentity,
+)
+from attestation.attestation_service import AttestationService
+from attestation.attestation_signer import Signer, SoftwareEd25519Signer
+
+__all__ = [
+    "AttestationError",
+    "AttestationReason",
+    "AttestationResult",
+    "AttestationService",
+    "Challenge",
+    "DuplicateEnrolmentError",
+    "ModuleIdentity",
+    "Signer",
+    "SoftwareEd25519Signer",
+    "UnknownModuleError",
+    "issue_challenge",
+    "verify_response",
+]
