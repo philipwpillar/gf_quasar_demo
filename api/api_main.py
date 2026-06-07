@@ -1,0 +1,72 @@
+"""FastAPI gateway — pydantic-validated boundaries for the Quasar demo.
+
+The front end and console go through this gateway only; they never import
+``AttestationService``, ``ClearanceService``, or ``Ledger`` directly.
+Pydantic validates every request/response shape (422 on shape errors).
+"""
+
+from __future__ import annotations
+
+import os
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fastapi import FastAPI
+
+from attestation import AttestationService, SoftwareEd25519Signer
+from ledger import Ledger
+from policy import ClearanceService
+
+from api.api_errors import register_exception_handlers
+from api.api_routes_attestation import router as attestation_router
+from api.api_routes_clearance import router as clearance_router
+from api.api_routes_ledger import router as ledger_router
+
+
+def _load_clearance_authority_signer() -> SoftwareEd25519Signer:
+    """Load clearance-authority key from env, or generate ephemerally if unset."""
+    key_hex = os.environ.get("QUASAR_CLEARANCE_AUTHORITY_KEY_HEX", "").strip()
+    if key_hex:
+        private_key = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(key_hex))
+        return SoftwareEd25519Signer(private_key=private_key)
+    # Ephemeral demo key when unset — not persisted across restarts; never logged.
+    return SoftwareEd25519Signer()
+
+
+def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
+    """Construct the gateway with fresh in-memory singletons (demo wiring)."""
+    app = FastAPI(
+        title="GravitonForge Quasar Demo API",
+        description=(
+            "Trust-and-provenance gateway. Attestation and ledger are REAL; "
+            "policy breadth is STUBBED (curated single-task rules)."
+        ),
+    )
+
+    ledger = Ledger()
+    attestation = AttestationService(ledger, config_id=config_id)
+    authority_signer = _load_clearance_authority_signer()
+    clearance = ClearanceService(ledger, attestation, authority_signer)
+
+    # Demo key management: module signers created at enrol time in process memory.
+    # Real deployment uses secure elements per the Signer swap — private keys are
+    # never logged or serialised.
+    app.state.ledger = ledger
+    app.state.attestation = attestation
+    app.state.clearance = clearance
+    app.state.module_signers: dict[str, SoftwareEd25519Signer] = {}
+    app.state.new_module_signer = SoftwareEd25519Signer
+
+    register_exception_handlers(app)
+
+    app.include_router(attestation_router)
+    app.include_router(clearance_router)
+    app.include_router(ledger_router)
+
+    @app.get("/healthz")
+    def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()
