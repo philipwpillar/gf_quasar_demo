@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+import os
+
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
-from attestation import AttestationService, ModuleIdentity
+from attestation import AttestationService, ModuleIdentity, SoftwareEd25519Signer
 from attestation.attestation_models import AttestationResult
 
 router = APIRouter(tags=["attestation"])
@@ -59,3 +61,46 @@ def attest_module(request_body: AttestRequest, request: Request) -> AttestationR
         raise UnknownModuleError(request_body.module_id)
 
     return attestation.attest(request_body.module_id, signer)
+
+
+class CorruptSignerRequest(BaseModel):
+    """Dev-only: swap a module signer to trigger mate-time attestation failure."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: str
+
+
+class CorruptSignerResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: str
+    message: str
+
+
+@router.post("/dev/corrupt-module-signer", response_model=CorruptSignerResponse)
+def corrupt_module_signer(
+    request_body: CorruptSignerRequest, request: Request
+) -> CorruptSignerResponse:
+    """Replace a demo-held module signer (env-gated; for propagation-failure demo only)."""
+    if os.environ.get("QUASAR_ENABLE_DEV_HOOKS", "").lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
+        raise HTTPException(status_code=404, detail="Dev hooks disabled")
+
+    module_signers: dict = request.app.state.module_signers
+    if request_body.module_id not in module_signers:
+        from attestation import UnknownModuleError
+
+        raise UnknownModuleError(request_body.module_id)
+
+    module_signers[request_body.module_id] = SoftwareEd25519Signer()
+    return CorruptSignerResponse(
+        module_id=request_body.module_id,
+        message=(
+            "Demo signer swapped — next compose will record mate-time attestation "
+            "failure for this module."
+        ),
+    )

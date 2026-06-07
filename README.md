@@ -118,6 +118,24 @@ Tests:
 pytest
 ```
 
+### Fleet console (step 4)
+
+```bash
+cd console && npm install && npm run dev
+```
+
+The console runs on `http://localhost:5173` and calls the API on `:8000`. Enable
+CORS for local dev (defaults on):
+
+```bash
+export QUASAR_ENABLE_CORS=1
+export QUASAR_CORS_ORIGIN=http://localhost:5173
+export QUASAR_ENABLE_DEV_HOOKS=1   # propagating-failure demo signer swap
+uvicorn api.api_main:app --reload
+```
+
+See `console/README.md` for details.
+
 ## Build order
 
 Sequenced to de-risk the load-bearing claims first.

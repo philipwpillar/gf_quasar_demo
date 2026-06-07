@@ -11,6 +11,7 @@ import os
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from attestation import AttestationService, SoftwareEd25519Signer
 from ledger import Ledger
@@ -74,6 +75,17 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     app.state.new_module_signer = SoftwareEd25519Signer
 
     register_exception_handlers(app)
+
+    if os.environ.get("QUASAR_ENABLE_CORS", "1").lower() in ("1", "true", "yes"):
+        cors_origin = os.environ.get(
+            "QUASAR_CORS_ORIGIN", "http://localhost:5173"
+        ).strip()
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[cors_origin],
+            allow_methods=["GET", "POST"],
+            allow_headers=["Content-Type"],
+        )
 
     app.include_router(attestation_router)
     app.include_router(clearance_router)

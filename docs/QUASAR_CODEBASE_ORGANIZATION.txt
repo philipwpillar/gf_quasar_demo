@@ -1,0 +1,393 @@
+===============================================================================
+ GRAVITONFORGE QUASAR  —  CODEBASE ORGANIZATION CONSTITUTION
+ The first-class system for how this repository is structured.
+ Read this before adding a single file.
+===============================================================================
+
+Status: authoritative. This document governs naming, placement, and structure
+for the entire Quasar demo repo. If a future file violates it, the file is
+wrong, not this document. Updated when a rule genuinely changes, never to
+excuse a one-off.
+
+Audience: an incoming expert who has never seen this repo. By the end of this
+file they should be able to predict where any piece of code lives, and add a
+new file in the right place with the right name, without asking.
+
+
+-------------------------------------------------------------------------------
+ 0.  THE THREE STANDING RULES (non-negotiable)
+-------------------------------------------------------------------------------
+
+  RULE 1 — NO NAME REUSE.
+    No two files in the repo share a base name. There is never a second
+    `models.py` or a second `utils.py`. Every file name is independently
+    unique and self-describing, prefixed by its component (see Section 3).
+    Why: in an editor tab bar, a stack trace, or a grep result, the file name
+    alone must tell you which component you are in. Five files called
+    `models.py` is five chances to edit the wrong one.
+
+  RULE 2 — ORGANIZE BY COMPONENT, THEN BY ROLE.
+    Top level groups by what the system DOES (component). Inside a component,
+    files group by the role they play (model / core / service / errors).
+    Justification is in Section 2 — this is the deliberate architectural
+    choice, not a default we drifted into.
+
+  RULE 3 — IMMEDIATELY LEGIBLE TO AN INCOMING EXPERT.
+    The directory tree should scream the system's purpose. A new engineer
+    reads the top-level folders and understands the product. They read one
+    component's file list and can navigate every other component, because all
+    components follow the same internal taxonomy.
+
+
+-------------------------------------------------------------------------------
+ 1.  HOW THE BEST CODEBASES ORGANIZE THEMSELVES  (the evidence behind Rule 2)
+-------------------------------------------------------------------------------
+
+There are two dominant organizing philosophies. Mature, long-lived codebases
+pick one on purpose. The summary below is why Quasar uses the one it does.
+
+  (A) PACKAGE-BY-LAYER  ("by toolbox")
+      Group by technical role across the whole app: all models in one folder,
+      all routes in another, all services in a third.
+        app/
+          models/        <- every model in the system
+          routes/        <- every route in the system
+          services/      <- every service in the system
+      Seen in: default Rails, default Django, many tutorials.
+      Strength: trivial at very small scale; obvious where "a model" goes.
+      Weakness: to change ONE feature you touch every folder. The tree tells
+      you which FRAMEWORKS are used, never what the system DOES. Every app
+      looks identical from the directory listing. Coupling hides because
+      unrelated things sit in the same folder just by being the same "type".
+
+  (B) PACKAGE-BY-COMPONENT  ("by layer of the DOMAIN" / "screaming architecture")
+      Group by domain capability: everything for one capability lives together,
+      with a clean published interface and hidden internals.
+        attestation/     <- everything attestation needs, end to end
+        ledger/          <- everything ledger needs, end to end
+      Seen in: large self-contained service codebases, modular monoliths, the
+      "package by feature" school (Robert C. Martin's "screaming architecture":
+      the top-level structure should announce the use case, not the framework).
+      Strength: a feature change is local to one folder. Components have real
+      boundaries, so they are independently testable and independently
+      extractable into separate deployables later. The tree documents the
+      product.
+      Weakness: needs discipline so each component stays internally consistent;
+      shared concerns need a deliberate home (we give them one: Section 4).
+
+  THE SYNTHESIS QUASAR USES (and what top codebases actually converge on):
+      Package-by-component at the top level, plus a consistent file-ROLE
+      taxonomy INSIDE each component. You get feature-legibility from the top
+      level and predictability from the repeated internal pattern. Learn one
+      component, you can navigate all of them.
+
+  WHY THIS REPO IN PARTICULAR:
+      The Build Spec states the design intent outright: "the boundaries are
+      the product." The attestation core and the ledger are the components an
+      outside investigator queries, so each must be a clean unit that could be
+      handed to a third party. That is package-by-component by definition. We
+      are not choosing a fashion; we are matching the structure to the thesis.
+
+
+-------------------------------------------------------------------------------
+ 2.  THE COMPONENT MAP  (top level — what each folder is, and its REAL/STUB status)
+-------------------------------------------------------------------------------
+
+Every top-level component carries an explicit trust status, because the
+REAL / STUBBED boundary is the single most important rule in the whole project.
+A component's status is stated in its own header doc and never silently changes.
+
+  ledger/        [REAL]         Append-only, hash-chained decision log. The
+                                spine. Built first. Carries verify(). Held to
+                                production rigour.
+
+  attestation/   [REAL]         Module identity + mate-time challenge-response,
+                                verified against a real secure element. The
+                                other load-bearing claim. Production rigour.
+
+  policy/        [STUB breadth]  Clearance engine. Curated rule set for ONE task
+                                class, not the full configuration-space
+                                optimiser. Labelled stubbed in code and on screen.
+
+  site/          [REAL gate /   Tier 2 robot composition + Tier 3 site admission.
+                 STUB breadth]  One primitive (challenge-response) applied at the
+                                robot and site boundaries. The composition/
+                                admission GATE and ledger writes are REAL; the
+                                site policy BREADTH reuses policy/'s stubbed
+                                single-task rules. Has its own site-authority
+                                signing key. Tier 3 attests and clears; it NEVER
+                                orchestrates or dispatches. IMPORT-NAME EXCEPTION:
+                                see Section 3 — on-disk folder is site/, runtime
+                                import name is quasar_site.
+
+  corpus/        [STUB depth]   Telemetry sink + synthetic seed generator.
+                                Schema is full-fidelity from day one; the DATA
+                                is synthetic. Labelled stubbed.
+
+  api/           [GATEWAY]      FastAPI gateway. Pydantic-validated boundaries.
+                                The front end never touches a component directly;
+                                it goes through here. No business logic lives
+                                here — this layer wires components together.
+
+  console/       [UI]           React + Vite + TypeScript + Tailwind fleet
+                                console. The part allowed to be rough; the
+                                trust core is not.
+
+  narrator/      [STUB / READ-ONLY]  LLM assistant over a read-only view of
+                                ledger + policy. Explains; never decides. Its
+                                output is NEVER an input to clearance. (Folder
+                                added when we reach build step 5.)
+
+  shared/        [SUPPORT]      Cross-component primitives that genuinely belong
+                                to no single component (canonical hashing,
+                                shared enums, time helpers). Kept deliberately
+                                thin. See Section 4 for the rule that keeps it
+                                from becoming a junk drawer.
+
+  tests/         [VERIFICATION] pytest. Ledger and attestation core carry real
+                                coverage; stubs carry enough to prove the shape.
+
+Build order is fixed by the spec and is the order components become real:
+  1. ledger (+ verify)   2. attestation (sw, then secure element)
+  3. api + clearance flow   4. console   5. narrator + synthetic corpus seed.
+
+
+-------------------------------------------------------------------------------
+ 3.  FILE NAMING  (how Rule 1 is satisfied in practice)
+-------------------------------------------------------------------------------
+
+Pattern:   <component>_<role>.py        (backend, Python)
+           <component><Role>.tsx/.ts    (console, TypeScript)
+
+The component prefix guarantees global uniqueness (Rule 1) and makes the file
+self-locating in any tab bar or stack trace (Rule 3).
+
+  ROLE SUFFIXES (the recurring internal taxonomy — same in every component):
+
+    _models     Pydantic models / typed boundary shapes for this component.
+                Pure data definitions. No behaviour beyond validation.
+                  e.g. ledger_models.py, attestation_models.py
+
+    _chain      (ledger-specific) the hash-chain mechanics.
+    _core       The load-bearing logic of the component — the part that, if
+                wrong, breaks the component's central claim.
+                  e.g. attestation_core.py (challenge-response + verify)
+
+    _service    Orchestration: ties this component's core to the ledger and to
+                other components. The callable surface other code uses.
+                  e.g. policy_service.py
+
+    _errors     Component-specific exception types. Imported by api/ so the
+                gateway can map them to HTTP responses.
+                  e.g. ledger_errors.py
+
+    _seed       (stubs only) synthetic data generators, clearly labelled.
+                  e.g. corpus_seed.py
+
+  GOOD (unique, self-describing, predictable):
+      ledger/ledger_models.py
+      ledger/ledger_chain.py
+      ledger/ledger_service.py
+      ledger/ledger_errors.py
+      attestation/attestation_models.py
+      attestation/attestation_core.py
+      attestation/attestation_service.py
+      corpus/corpus_models.py
+      corpus/corpus_seed.py
+
+  BANNED (violates Rule 1 — bare names that would repeat across components):
+      ledger/models.py            <- which models? collides with four others.
+      attestation/utils.py        <- "utils" is where clarity goes to die.
+      policy/helpers.py           <- same problem.
+      api/main2.py                <- numeric suffixes are not names.
+
+  TESTS mirror the file they test, prefixed test_:
+      tests/test_ledger_chain.py        tests ledger/ledger_chain.py
+      tests/test_attestation_core.py    tests attestation/attestation_core.py
+      One test file per source file of substance. Test file names are unique
+      for the same reason source names are.
+
+  CONSOLE (TypeScript) follows the same spirit in TS convention:
+      console/src/components/SiteFleetView.tsx
+      console/src/components/ModuleAssemblyPanel.tsx
+      console/src/api/quasarApiClient.ts
+      console/src/types/quasarLedgerTypes.ts
+      Component-prefixed, PascalCase for components, camelCase for modules.
+
+  THE ONE IMPORT-NAME EXCEPTION (site/ -> quasar_site):
+      Normally the on-disk folder name IS the import name. There is exactly one
+      sanctioned exception, and it is documented so it never spreads silently.
+
+      Python 3.13 freezes the stdlib `site` module, so a top-level package named
+      `site/` cannot be imported as `site`. We keep the on-disk folder `site/`
+      (the domain word is correct; Tier 3 IS site admission) and load it under
+      the runtime name `quasar_site` via bootstrap_site_package.py, wired in
+      through conftest.py for tests and api_main for the app.
+
+        on disk:        site/site_admission.py
+        import as:      from quasar_site.site_admission import admit
+        bootstrap:      bootstrap_site_package.py (repo root) registers the
+                        package under quasar_site in sys.modules.
+
+      Rules for this exception:
+        - It applies to `site/` ONLY. No other component may diverge folder name
+          from import name. If a second stdlib collision ever appears, it gets
+          its own documented line here; it does not become a general pattern.
+        - Files inside still obey Rule 1 naming (site_models.py, site_admission.py,
+          ...). The exception is about the PACKAGE import name, not file names.
+        - bootstrap_site_package.py and conftest.py are repo-root infrastructure
+          files, not component files; they are the only sanctioned residents of
+          the root besides the standard project files (README, requirements, etc).
+
+
+-------------------------------------------------------------------------------
+ 4.  THE shared/ RULE  (so it never becomes a junk drawer)
+-------------------------------------------------------------------------------
+
+A thing may live in shared/ only if BOTH are true:
+    (a) it is used by two or more components, AND
+    (b) it belongs to none of them more than the others.
+
+The canonical example, and the most important shared file in the repo:
+    shared/canonical_hashing.py
+        Deterministic serialisation + SHA-256. Sorted keys, fixed separators,
+        fixed datetime encoding. The ledger and (later) any verifier depend on
+        it producing byte-identical output for the same logical input.
+        Non-deterministic serialisation silently breaks the chain and is the
+        single most likely subtle bug in the system. It lives in shared/
+        because both the ledger and external verify() tooling must use the
+        EXACT same routine; a copy in each would be a chain-splitting hazard.
+
+If something is used by only one component, it lives IN that component, full
+stop. shared/ is reviewed for creep on every addition. When in doubt, it does
+NOT go in shared/.
+
+
+-------------------------------------------------------------------------------
+ 5.  COMPONENT INTERNAL CONTRACT  (every component looks the same inside)
+-------------------------------------------------------------------------------
+
+Each backend component exposes its public surface through its __init__.py and
+hides everything else. Other components import ONLY from the package, never
+reach into a private file.
+
+  Allowed:    from ledger import LedgerService, LedgerEntry
+  Banned:     from ledger.ledger_chain import _recompute_hash   # private internal
+
+Cross-component calls pass typed models, never raw dicts. FastAPI/Pydantic
+raise on shape errors at the boundary; we do not hand-roll validation. A raw
+dict crossing a component edge is a bug.
+
+Each component carries a one-screen header doc (top of its _service or a short
+COMPONENT_NOTES block) stating: its trust status (REAL/STUB), its public
+surface, and the one invariant it must never break (e.g. ledger: "append-only,
+deterministic, verify() names the exact break point"; attestation: "we claim
+real secure element, never full root-of-trust").
+
+
+-------------------------------------------------------------------------------
+ 6.  THE TARGET TREE  (what the repo grows into, fully built)
+-------------------------------------------------------------------------------
+
+  gf_quasar_demo/
+    ledger/
+      __init__.py                 published surface: LedgerService, LedgerEntry, EntryKind, verify
+      ledger_models.py            LedgerEntry, EntryKind enum (all 7 kinds, line one)
+      ledger_chain.py             hash-chain mechanics, append, verify()
+      ledger_service.py           callable orchestration surface
+      ledger_errors.py            ChainBrokenError, etc.
+    attestation/
+      __init__.py
+      attestation_models.py       AttestationResult, Challenge, ModuleIdentity
+      attestation_core.py         challenge-response, freshness, signature verify
+      attestation_signer.py       signing abstraction: software <-> secure element
+      attestation_service.py      enrol / attest, writes to ledger
+      attestation_errors.py
+    policy/
+      __init__.py
+      policy_models.py            ClearanceRequest/Response, rule shapes
+      policy_rules.py             the curated single-task rule set  [STUB breadth]
+      policy_service.py           runs rules, signs verdict, writes clearance_decision
+      policy_errors.py
+    site/                         (on disk: site/  |  import as: quasar_site — Sec 3)
+      __init__.py
+      site_models.py              RobotComposition, SiteAdmissionRequest/Verdict
+      site_composition.py         Tier 2: compose_robot, writes robot_composed
+      site_admission.py           Tier 3: admit, signs + writes site_admission; verify_site_verdict
+      site_service.py             orchestrates Tier 1 -> 2 -> 3 over attestation + ledger
+      site_errors.py
+    corpus/
+      __init__.py
+      corpus_models.py            TelemetrySample (full-fidelity schema, line one)
+      corpus_seed.py              synthetic generator  [STUB depth], provenance-linked
+      corpus_service.py           ingest, validates attestation_ref against ledger
+    narrator/                     (build step 5)
+      __init__.py
+      narrator_models.py
+      narrator_service.py         read-only over ledger+policy; never in decision path
+    api/
+      __init__.py
+      api_main.py                 FastAPI app + gateway wiring
+      api_routes_attestation.py   /modules/enrol, /attest
+      api_routes_clearance.py     /clearance
+      api_routes_site.py          /robots/compose, /site/admit
+      api_routes_ledger.py        /ledger/verify, /ledger/export
+      api_routes_corpus.py        /telemetry
+      api_routes_narrator.py      /assistant/query
+      api_errors.py               maps component errors -> HTTP
+    shared/
+      __init__.py
+      canonical_hashing.py        THE deterministic serialise+hash routine
+      shared_time.py              tz-aware now(), isoformat helpers
+      shared_enums.py             only enums genuinely used by 2+ components
+    console/
+      index.html
+      package.json                Vite + React + TS + Tailwind
+      vite.config.ts
+      tailwind.config.js
+      src/
+        main.tsx                  React entry
+        App.tsx                   top-level shell
+        components/               SiteFleetView.tsx, RobotPanel.tsx,
+                                  ModuleAssemblyPanel.tsx, LedgerInspector.tsx, ...
+        api/quasarApiClient.ts    the ONE typed client to the gateway
+        types/quasarLedgerTypes.ts  TS mirrors of the API/ledger shapes
+    tests/
+      test_ledger_chain.py
+      test_attestation_core.py
+      test_policy_rules.py
+      test_site_flow.py
+      test_corpus_seed.py
+    docs/
+      QUASAR_CODEBASE_ORGANIZATION.txt   (this file)
+    bootstrap_site_package.py     root infra: registers site/ as quasar_site (Sec 3)
+    conftest.py                   root infra: wires bootstrap for pytest
+    .env.example
+    .gitignore
+    README.md
+    requirements.txt
+
+  Note: the current scaffold uses one __init__.py per component folder, which
+  is correct. Files get their real, unique names as each component is built in
+  build order — starting with the ledger spine.
+
+
+-------------------------------------------------------------------------------
+ 7.  QUICK DECISION GUIDE  (paste-on-the-wall version)
+-------------------------------------------------------------------------------
+
+  "Where does my new file go?"
+     1. Which COMPONENT capability does it serve? -> that top-level folder.
+        (Serves two equally + belongs to none? -> shared/, and re-read Sec 4.)
+     2. What ROLE does it play? -> pick the suffix: _models / _core / _service
+        / _errors / _seed / _chain.
+     3. Name it <component>_<role>.py. Confirm the base name exists nowhere
+        else in the repo (Rule 1).
+     4. Does it cross a component boundary? -> pass typed models, never dicts.
+     5. Is it touching hashing/serialisation? -> it uses shared/canonical_hashing
+        and gets real test coverage. No exceptions.
+
+===============================================================================
+ END. Keep this current. An incoming expert reading only this file should be
+ able to place and name any new file correctly on their first day.
+===============================================================================
