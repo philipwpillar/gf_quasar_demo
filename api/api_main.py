@@ -7,6 +7,12 @@ Pydantic validates every request/response shape (422 on shape errors).
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")  # repo root; never committed
+
 import os
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

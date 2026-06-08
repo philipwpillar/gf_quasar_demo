@@ -21,7 +21,7 @@ NOT_CONFIGURED_MESSAGE = (
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-3.5-sonnet"
-REQUEST_TIMEOUT_SECONDS = 60.0
+REQUEST_TIMEOUT_SECONDS = 20.0
 
 LlmCallable = Callable[[str, str], tuple[str, bool]]
 
@@ -64,10 +64,37 @@ def call_llm(context: str, question: str) -> tuple[str, bool]:
         ],
     }
 
-    with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
-        response = client.post(url, headers=headers, json=body)
-        response.raise_for_status()
-        payload = response.json()
-
-    answer = payload["choices"][0]["message"]["content"].strip()
-    return answer, True
+    try:
+        with httpx.Client(timeout=REQUEST_TIMEOUT_SECONDS) as client:
+            response = client.post(url, headers=headers, json=body)
+            response.raise_for_status()
+            payload = response.json()
+        answer = payload["choices"][0]["message"]["content"].strip()
+        return answer, True
+    except httpx.TimeoutException:
+        return (
+            "The model took too long to respond (it may be busy or rate-limited). "
+            "Try again or switch QUASAR_LLM_MODEL.",
+            True,
+        )
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code
+        if status == 404:
+            return (
+                "Model not found — check QUASAR_LLM_MODEL is a current OpenRouter slug.",
+                True,
+            )
+        if status == 429:
+            return (
+                "Rate-limited by the provider (free-tier limits). Wait a moment and retry.",
+                True,
+            )
+        return (
+            "The LLM provider returned an error. Check your API key and model settings, then retry.",
+            True,
+        )
+    except httpx.RequestError:
+        return (
+            "Could not reach the LLM provider. Check QUASAR_LLM_BASE_URL and your network connection.",
+            True,
+        )
