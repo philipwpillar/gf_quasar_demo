@@ -16,6 +16,10 @@ export default function QuasarAppBar({ apiOnline }: QuasarAppBarProps) {
             Fleet Console
           </span>
         </div>
+        <p className="max-w-3xl text-xs leading-snug text-ink-muted sm:text-sm">
+          Operator view over the trust gateway. Verdicts are backend-computed and signed —
+          this console does not decide clearance.
+        </p>
       </div>
 
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">

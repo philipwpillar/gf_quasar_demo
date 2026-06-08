@@ -38,7 +38,7 @@ const NAV_ITEMS: { id: ShellSection; label: string; icon: JSX.Element }[] = [
 
 export default function QuasarSidebar({ activeSection, onNavigate }: QuasarSidebarProps) {
   return (
-    <nav className="shell-sidebar" aria-label="Console sections">
+    <nav className="shell-sidebar" aria-label="Console pages">
       <ul className="space-y-1">
         {NAV_ITEMS.map((item) => {
           const isActive = activeSection === item.id;

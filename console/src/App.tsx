@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   admitRobot,
@@ -13,7 +13,6 @@ import ModuleAssemblyPanel from "./components/ModuleAssemblyPanel";
 import PropagationChainCard from "./components/PropagationChainCard";
 import QuasarAppBar from "./components/QuasarAppBar";
 import QuasarFloatingNarrator from "./components/QuasarFloatingNarrator";
-import QuasarShellFooter from "./components/QuasarShellFooter";
 import QuasarSidebar, { type ShellSection } from "./components/QuasarSidebar";
 import SiteFleetView from "./components/SiteFleetView";
 import type {
@@ -33,12 +32,6 @@ const DEFAULT_GATE: SiteGateConfig = {
 const PROPAGATION_ROBOT_ID = "robot-propagation-demo";
 const TRUSTED_ROBOT_ID = "robot-trusted-demo";
 
-const SECTION_IDS: Record<ShellSection, string> = {
-  "site-fleet": "section-site-fleet",
-  "module-assembly": "section-module-assembly",
-  ledger: "section-ledger",
-};
-
 export default function App() {
   const [modules, setModules] = useState<EnrolledModule[]>([]);
   const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
@@ -51,7 +44,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ShellSection>("site-fleet");
-  const mainRef = useRef<HTMLElement>(null);
 
   const propagationRobot = robots.find((r) => r.robot_id === propagationRobotId);
 
@@ -67,48 +59,8 @@ export default function App() {
       .catch(() => setApiOnline(false));
   }, []);
 
-  useEffect(() => {
-    const root = mainRef.current;
-    if (!root) {
-      return;
-    }
-
-    const sections = (["site-fleet", "module-assembly", "ledger"] as const).map(
-      (id) => document.getElementById(SECTION_IDS[id]),
-    );
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible.length > 0) {
-          const matched = (["site-fleet", "module-assembly", "ledger"] as const).find(
-            (id) => visible[0].target.id === SECTION_IDS[id],
-          );
-          if (matched) {
-            setActiveSection(matched);
-          }
-        }
-      },
-      { root, rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5] },
-    );
-
-    for (const el of sections) {
-      if (el) {
-        observer.observe(el);
-      }
-    }
-
-    return () => observer.disconnect();
-  }, [propagationRobotId]);
-
   function navigateToSection(section: ShellSection) {
     setActiveSection(section);
-    document.getElementById(SECTION_IDS[section])?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   }
 
   async function withBusy<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -398,7 +350,7 @@ export default function App() {
       <div className="shell-body">
         <QuasarSidebar activeSection={activeSection} onNavigate={navigateToSection} />
 
-        <main ref={mainRef} className="shell-main">
+        <main className="shell-main">
           <div className="shell-toolbar">
             <button
               type="button"
@@ -446,17 +398,25 @@ export default function App() {
             </p>
           )}
 
-          <div className="shell-card-grid">
-            <div id="section-site-fleet" className="scroll-mt-4">
-              <SiteFleetView
-                gate={DEFAULT_GATE}
-                robots={robots}
-                modules={modules}
-                propagationRobotId={propagationRobotId}
-              />
-            </div>
+          <div className="shell-page">
+            {activeSection === "site-fleet" && (
+              <>
+                <SiteFleetView
+                  gate={DEFAULT_GATE}
+                  robots={robots}
+                  modules={modules}
+                  propagationRobotId={propagationRobotId}
+                />
+                {propagationRobot && (
+                  <PropagationChainCard
+                    robot={propagationRobot}
+                    admission={propagationRobot.admission}
+                  />
+                )}
+              </>
+            )}
 
-            <div id="section-module-assembly" className="scroll-mt-4">
+            {activeSection === "module-assembly" && (
               <ModuleAssemblyPanel
                 modules={modules}
                 selectedModuleIds={selectedModuleIds}
@@ -468,31 +428,21 @@ export default function App() {
                 busy={busy}
                 error={null}
               />
-            </div>
-
-            {propagationRobot && (
-              <div className="scroll-mt-4">
-                <PropagationChainCard
-                  robot={propagationRobot}
-                  admission={propagationRobot.admission}
-                />
-              </div>
             )}
-          </div>
 
-          <div id="section-ledger" className="scroll-mt-4 mt-6">
-            <LedgerInspector
-              entries={ledgerEntries}
-              verifyResult={ledgerVerify}
-              onRefresh={refreshLedger}
-              busy={busy}
-            />
+            {activeSection === "ledger" && (
+              <LedgerInspector
+                entries={ledgerEntries}
+                verifyResult={ledgerVerify}
+                onRefresh={refreshLedger}
+                busy={busy}
+              />
+            )}
           </div>
         </main>
       </div>
 
       <QuasarFloatingNarrator />
-      <QuasarShellFooter />
     </div>
   );
 }
