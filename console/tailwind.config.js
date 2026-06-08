@@ -20,6 +20,9 @@ export default {
           DEFAULT: "#e2e8f0",
           strong: "#cbd5e1",
         },
+        brand: {
+          DEFAULT: "#0b3d6a",
+        },
         accent: {
           DEFAULT: "#2563eb",
           hover: "#1d4ed8",
@@ -50,6 +53,12 @@ export default {
       },
       boxShadow: {
         card: "0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06)",
+        elevated:
+          "0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.06)",
+      },
+      spacing: {
+        "shell-sidebar": "15rem",
+        "shell-app-bar": "4rem",
       },
     },
   },

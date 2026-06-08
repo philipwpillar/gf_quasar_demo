@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --shell-app-bar-height: 5rem;
+    --shell-sidebar-width: 15rem;
+  }
+
   body {
     margin: 0;
     min-height: 100vh;
@@ -21,6 +26,54 @@
 }
 
 @layer components {
+  .shell-root {
+    @apply min-h-screen bg-surface;
+  }
+
+  .shell-app-bar {
+    @apply fixed inset-x-0 top-0 z-40 flex min-h-20 items-center justify-between gap-4 border-b border-line bg-surface-card px-4 py-3 shadow-sm sm:px-6;
+  }
+
+  .shell-body {
+    @apply flex pt-20;
+  }
+
+  .shell-sidebar {
+    @apply fixed bottom-0 left-0 top-20 z-30 hidden w-60 shrink-0 overflow-y-auto border-r border-line bg-surface-card px-3 py-5 md:block;
+  }
+
+  .shell-nav-item {
+    @apply flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-muted hover:text-ink focus:outline-none focus:ring-2 focus:ring-accent/30;
+  }
+
+  .shell-nav-item-active {
+    @apply border-l-[3px] border-accent bg-accent-subtle pl-[calc(0.75rem-3px)] text-accent;
+  }
+
+  .shell-main {
+    @apply min-h-[calc(100vh-5rem)] flex-1 overflow-y-auto p-4 pb-20 md:ml-60 md:p-6 md:pb-20 lg:p-8;
+  }
+
+  .shell-disclaimer {
+    @apply pointer-events-none fixed bottom-4 left-4 z-20 max-w-xl text-xs leading-snug text-trust-fail-text sm:text-sm md:left-60 md:pl-6 lg:max-w-2xl lg:text-base;
+  }
+
+  .shell-toolbar {
+    @apply mb-5 flex flex-wrap gap-2 rounded-lg border border-line bg-surface-card p-3 shadow-card;
+  }
+
+  .shell-card-grid {
+    @apply grid grid-cols-1 gap-6 xl:grid-cols-2;
+  }
+
+  .shell-narrator-fab {
+    @apply fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface-card px-4 py-3 text-sm font-medium text-ink shadow-elevated transition-all hover:border-accent hover:text-accent focus:outline-none focus:ring-2 focus:ring-accent/30;
+  }
+
+  .shell-narrator-panel {
+    @apply fixed bottom-6 right-6 z-50 w-[min(100vw-2rem,24rem)] overflow-hidden rounded-xl border border-line bg-surface-card shadow-elevated;
+  }
+
   .card {
     @apply rounded-lg border border-line bg-surface-card p-5 shadow-card;
   }
@@ -34,19 +87,19 @@
   }
 
   .btn-primary {
-    @apply rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50;
+    @apply rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply rounded-md border border-line-strong bg-surface-card px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-muted disabled:opacity-50;
+    @apply rounded-md border border-line-strong bg-surface-card px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50;
   }
 
   .btn-success {
-    @apply rounded-md bg-trust-ok-border px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50;
+    @apply rounded-md bg-trust-ok-border px-4 py-2 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-trust-ok-border/30 disabled:opacity-50;
   }
 
   .btn-danger {
-    @apply rounded-md bg-trust-fail-border px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50;
+    @apply rounded-md bg-trust-fail-border px-4 py-2 text-sm font-semibold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-trust-fail-border/30 disabled:opacity-50;
   }
 
   .ledger-pre {

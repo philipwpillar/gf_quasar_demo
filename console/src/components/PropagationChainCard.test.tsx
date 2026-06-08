@@ -1,25 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { EnrolledModule, FleetRobot } from "../types/quasarLedgerTypes";
+import type { FleetRobot } from "../types/quasarLedgerTypes";
 import { POLICY_MODE_STUB } from "../types/quasarLedgerTypes";
 
-import SiteFleetView from "./SiteFleetView";
-
-const modules: EnrolledModule[] = [
-  {
-    module_id: "mod-secure-001",
-    public_key_hex: "aa".repeat(32),
-    isRealSecureElement: true,
-    isSynthetic: false,
-  },
-  {
-    module_id: "mod-synth-002",
-    public_key_hex: "bb".repeat(32),
-    isRealSecureElement: false,
-    isSynthetic: true,
-  },
-];
+import PropagationChainCard from "./PropagationChainCard";
 
 const propagationRobot: FleetRobot = {
   robot_id: "robot-propagation-demo",
@@ -57,14 +42,12 @@ const propagationRobot: FleetRobot = {
   },
 };
 
-describe("SiteFleetView propagation chain", () => {
+describe("PropagationChainCard", () => {
   it("renders denied admission and names the failing module", () => {
     render(
-      <SiteFleetView
-        gate={{ task_class: "industrial_inspection", zone: "zone_b" }}
-        robots={[propagationRobot]}
-        modules={modules}
-        propagationRobotId="robot-propagation-demo"
+      <PropagationChainCard
+        robot={propagationRobot}
+        admission={propagationRobot.admission}
       />,
     );
 

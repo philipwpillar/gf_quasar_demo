@@ -47,7 +47,7 @@ export default function ModuleAssemblyPanel({
   error,
 }: ModuleAssemblyPanelProps) {
   return (
-    <section className="card">
+    <section className="card h-full">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="section-title">Module assembly</h2>

@@ -9,7 +9,11 @@ const SUGGESTED_QUESTIONS = [
   "Has this ledger been tampered with?",
 ] as const;
 
-export default function NarratorPanel() {
+interface NarratorPanelProps {
+  embedded?: boolean;
+}
+
+export default function NarratorPanel({ embedded = false }: NarratorPanelProps) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,14 +48,16 @@ export default function NarratorPanel() {
     void submitQuery(question);
   }
 
-  return (
-    <section className="card">
-      <header className="mb-4">
-        <h2 className="section-title">Ledger narrator</h2>
-        <p className="section-subtitle">
-          Read-only assistant over the hash-chained record — explains, never decides.
-        </p>
-      </header>
+  const content = (
+    <>
+      {!embedded && (
+        <header className="mb-4">
+          <h2 className="section-title">Ledger narrator</h2>
+          <p className="section-subtitle">
+            Read-only assistant over the hash-chained record — explains, never decides.
+          </p>
+        </header>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <label className="block">
@@ -136,9 +142,17 @@ export default function NarratorPanel() {
         </div>
       )}
 
-      <p className="mt-4 border-t border-line pt-3 text-xs text-ink-muted">
+      <p
+        className={`mt-4 text-xs text-ink-muted ${embedded ? "pt-2" : "border-t border-line pt-3"}`}
+      >
         The assistant explains the record. It never decides clearance.
       </p>
-    </section>
+    </>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <section className="card">{content}</section>;
 }

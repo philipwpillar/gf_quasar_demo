@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   admitRobot,
@@ -6,12 +6,15 @@ import {
   composeRobot,
   corruptModuleSigner,
   enrolModule,
-  getApiBase,
   healthCheck,
 } from "./api/quasarApiClient";
 import LedgerInspector, { fetchLedgerState } from "./components/LedgerInspector";
 import ModuleAssemblyPanel from "./components/ModuleAssemblyPanel";
-import NarratorPanel from "./components/NarratorPanel";
+import PropagationChainCard from "./components/PropagationChainCard";
+import QuasarAppBar from "./components/QuasarAppBar";
+import QuasarFloatingNarrator from "./components/QuasarFloatingNarrator";
+import QuasarShellFooter from "./components/QuasarShellFooter";
+import QuasarSidebar, { type ShellSection } from "./components/QuasarSidebar";
 import SiteFleetView from "./components/SiteFleetView";
 import type {
   EnrolledModule,
@@ -30,6 +33,12 @@ const DEFAULT_GATE: SiteGateConfig = {
 const PROPAGATION_ROBOT_ID = "robot-propagation-demo";
 const TRUSTED_ROBOT_ID = "robot-trusted-demo";
 
+const SECTION_IDS: Record<ShellSection, string> = {
+  "site-fleet": "section-site-fleet",
+  "module-assembly": "section-module-assembly",
+  ledger: "section-ledger",
+};
+
 export default function App() {
   const [modules, setModules] = useState<EnrolledModule[]>([]);
   const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
@@ -41,6 +50,10 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<ShellSection>("site-fleet");
+  const mainRef = useRef<HTMLElement>(null);
+
+  const propagationRobot = robots.find((r) => r.robot_id === propagationRobotId);
 
   const refreshLedger = useCallback(async () => {
     const { entries, verifyResult } = await fetchLedgerState();
@@ -53,6 +66,50 @@ export default function App() {
       .then(() => setApiOnline(true))
       .catch(() => setApiOnline(false));
   }, []);
+
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) {
+      return;
+    }
+
+    const sections = (["site-fleet", "module-assembly", "ledger"] as const).map(
+      (id) => document.getElementById(SECTION_IDS[id]),
+    );
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible.length > 0) {
+          const matched = (["site-fleet", "module-assembly", "ledger"] as const).find(
+            (id) => visible[0].target.id === SECTION_IDS[id],
+          );
+          if (matched) {
+            setActiveSection(matched);
+          }
+        }
+      },
+      { root, rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5] },
+    );
+
+    for (const el of sections) {
+      if (el) {
+        observer.observe(el);
+      }
+    }
+
+    return () => observer.disconnect();
+  }, [propagationRobotId]);
+
+  function navigateToSection(section: ShellSection) {
+    setActiveSection(section);
+    document.getElementById(SECTION_IDS[section])?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
 
   async function withBusy<T>(fn: () => Promise<T>): Promise<T | undefined> {
     setBusy(true);
@@ -335,115 +392,107 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-8">
-      <header className="mb-8 border-b border-line pb-5">
-        <h1 className="text-2xl font-bold tracking-tight text-ink">
-          GravitonForge Quasar — Fleet Console
-        </h1>
-        <p className="mt-1.5 text-sm text-ink-secondary">
-          Operator view over the trust gateway. Verdicts are backend-computed and signed —
-          this console does not decide clearance.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
-          <span>
-            API: <span className="font-mono text-ink-secondary">{getApiBase()}</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            Status:{" "}
-            {apiOnline === null ? (
-              "checking…"
-            ) : apiOnline ? (
-              <span className="inline-flex items-center gap-1 font-medium text-trust-ok-text">
-                <span aria-hidden="true">●</span> connected
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 font-medium text-trust-fail-text">
-                <span aria-hidden="true">●</span> offline
-              </span>
+    <div className="shell-root">
+      <QuasarAppBar apiOnline={apiOnline} />
+
+      <div className="shell-body">
+        <QuasarSidebar activeSection={activeSection} onNavigate={navigateToSection} />
+
+        <main ref={mainRef} className="shell-main">
+          <div className="shell-toolbar">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handlePropagationDemo}
+              className="btn-primary"
+            >
+              Run propagating-failure demo
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={handleTrustedDemo}
+              className="btn-primary"
+            >
+              Run trusted-path demo
+            </button>
+            <button
+              type="button"
+              disabled={busy || selectedModuleIds.length === 0}
+              onClick={() => handleComposeRobot("robot-manual", true)}
+              className="btn-secondary"
+            >
+              Compose selected robot
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleAdmitRobot(PROPAGATION_ROBOT_ID)}
+              className="btn-secondary"
+            >
+              Admit propagation robot
+            </button>
+          </div>
+
+          {statusMessage && (
+            <p className="mb-4 rounded-md border border-accent/20 bg-accent-subtle px-3 py-2 text-sm text-accent">
+              {statusMessage}
+            </p>
+          )}
+
+          {error && (
+            <p className="mb-4 rounded-md border border-trust-fail-border bg-trust-fail-bg px-3 py-2 text-sm text-trust-fail-text">
+              {error}
+            </p>
+          )}
+
+          <div className="shell-card-grid">
+            <div id="section-site-fleet" className="scroll-mt-4">
+              <SiteFleetView
+                gate={DEFAULT_GATE}
+                robots={robots}
+                modules={modules}
+                propagationRobotId={propagationRobotId}
+              />
+            </div>
+
+            <div id="section-module-assembly" className="scroll-mt-4">
+              <ModuleAssemblyPanel
+                modules={modules}
+                selectedModuleIds={selectedModuleIds}
+                onToggleModule={toggleModule}
+                onEnrolRealModule={handleEnrolRealModule}
+                onEnrolSyntheticModules={handleEnrolSyntheticModules}
+                onAttestModule={handleAttestModule}
+                onAttestAll={handleAttestAll}
+                busy={busy}
+                error={null}
+              />
+            </div>
+
+            {propagationRobot && (
+              <div className="scroll-mt-4">
+                <PropagationChainCard
+                  robot={propagationRobot}
+                  admission={propagationRobot.admission}
+                />
+              </div>
             )}
-          </span>
-          <span className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-2.5 py-1 font-semibold uppercase tracking-wide text-trust-warn-text">
-            STUB disclosure: policy breadth = stub_curated_single_task
-          </span>
-        </div>
-      </header>
+          </div>
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={handlePropagationDemo}
-          className="btn-danger"
-        >
-          Run propagating-failure demo
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={handleTrustedDemo}
-          className="btn-success"
-        >
-          Run trusted-path demo
-        </button>
-        <button
-          type="button"
-          disabled={busy || selectedModuleIds.length === 0}
-          onClick={() => handleComposeRobot("robot-manual", true)}
-          className="btn-secondary"
-        >
-          Compose selected robot
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => handleAdmitRobot(PROPAGATION_ROBOT_ID)}
-          className="btn-secondary"
-        >
-          Admit propagation robot
-        </button>
+          <div id="section-ledger" className="scroll-mt-4 mt-6">
+            <LedgerInspector
+              entries={ledgerEntries}
+              verifyResult={ledgerVerify}
+              onRefresh={refreshLedger}
+              busy={busy}
+            />
+          </div>
+        </main>
       </div>
 
-      {statusMessage && (
-        <p className="mb-4 rounded-md border border-accent/20 bg-accent-subtle px-3 py-2 text-sm text-accent">
-          {statusMessage}
-        </p>
-      )}
-
-      {error && (
-        <p className="mb-4 rounded-md border border-trust-fail-border bg-trust-fail-bg px-3 py-2 text-sm text-trust-fail-text">
-          {error}
-        </p>
-      )}
-
-      <div className="space-y-6">
-        <SiteFleetView
-          gate={DEFAULT_GATE}
-          robots={robots}
-          modules={modules}
-          propagationRobotId={propagationRobotId}
-        />
-
-        <ModuleAssemblyPanel
-          modules={modules}
-          selectedModuleIds={selectedModuleIds}
-          onToggleModule={toggleModule}
-          onEnrolRealModule={handleEnrolRealModule}
-          onEnrolSyntheticModules={handleEnrolSyntheticModules}
-          onAttestModule={handleAttestModule}
-          onAttestAll={handleAttestAll}
-          busy={busy}
-          error={null}
-        />
-
-        <LedgerInspector
-          entries={ledgerEntries}
-          verifyResult={ledgerVerify}
-          onRefresh={refreshLedger}
-          busy={busy}
-        />
-
-        <NarratorPanel />
-      </div>
+      <QuasarFloatingNarrator />
+      <QuasarShellFooter />
     </div>
   );
 }
