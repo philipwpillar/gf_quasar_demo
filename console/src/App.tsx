@@ -11,6 +11,7 @@ import {
 } from "./api/quasarApiClient";
 import LedgerInspector, { fetchLedgerState } from "./components/LedgerInspector";
 import ModuleAssemblyPanel from "./components/ModuleAssemblyPanel";
+import NarratorPanel from "./components/NarratorPanel";
 import SiteFleetView from "./components/SiteFleetView";
 import type {
   EnrolledModule,
@@ -334,41 +335,45 @@ export default function App() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-6xl px-4 py-6">
-      <header className="mb-6 border-b border-slate-800 pb-4">
-        <h1 className="text-2xl font-bold text-slate-50">
+    <div className="mx-auto min-h-screen max-w-6xl px-4 py-8">
+      <header className="mb-8 border-b border-line pb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-ink">
           GravitonForge Quasar — Fleet Console
         </h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1.5 text-sm text-ink-secondary">
           Operator view over the trust gateway. Verdicts are backend-computed and signed —
           this console does not decide clearance.
         </p>
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
           <span>
-            API: <span className="font-mono text-slate-400">{getApiBase()}</span>
+            API: <span className="font-mono text-ink-secondary">{getApiBase()}</span>
           </span>
-          <span>
+          <span className="inline-flex items-center gap-1.5">
             Status:{" "}
             {apiOnline === null ? (
               "checking…"
             ) : apiOnline ? (
-              <span className="text-emerald-400">connected</span>
+              <span className="inline-flex items-center gap-1 font-medium text-trust-ok-text">
+                <span aria-hidden="true">●</span> connected
+              </span>
             ) : (
-              <span className="text-rose-400">offline</span>
+              <span className="inline-flex items-center gap-1 font-medium text-trust-fail-text">
+                <span aria-hidden="true">●</span> offline
+              </span>
             )}
           </span>
-          <span className="rounded bg-amber-950 px-2 py-0.5 text-amber-300 border border-amber-800">
+          <span className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-2.5 py-1 font-semibold uppercase tracking-wide text-trust-warn-text">
             STUB disclosure: policy breadth = stub_curated_single_task
           </span>
         </div>
       </header>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-5 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={busy}
           onClick={handlePropagationDemo}
-          className="rounded bg-rose-800 px-4 py-2 text-sm font-semibold text-rose-50 hover:bg-rose-700 disabled:opacity-50"
+          className="btn-danger"
         >
           Run propagating-failure demo
         </button>
@@ -376,7 +381,7 @@ export default function App() {
           type="button"
           disabled={busy}
           onClick={handleTrustedDemo}
-          className="rounded bg-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-50 hover:bg-emerald-700 disabled:opacity-50"
+          className="btn-success"
         >
           Run trusted-path demo
         </button>
@@ -384,7 +389,7 @@ export default function App() {
           type="button"
           disabled={busy || selectedModuleIds.length === 0}
           onClick={() => handleComposeRobot("robot-manual", true)}
-          className="rounded bg-slate-700 px-4 py-2 text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+          className="btn-secondary"
         >
           Compose selected robot
         </button>
@@ -392,20 +397,20 @@ export default function App() {
           type="button"
           disabled={busy}
           onClick={() => handleAdmitRobot(PROPAGATION_ROBOT_ID)}
-          className="rounded bg-slate-700 px-4 py-2 text-sm text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+          className="btn-secondary"
         >
           Admit propagation robot
         </button>
       </div>
 
       {statusMessage && (
-        <p className="mb-3 rounded border border-indigo-800 bg-indigo-950 px-3 py-2 text-sm text-indigo-100">
+        <p className="mb-4 rounded-md border border-accent/20 bg-accent-subtle px-3 py-2 text-sm text-accent">
           {statusMessage}
         </p>
       )}
 
       {error && (
-        <p className="mb-3 rounded border border-rose-700 bg-rose-950 px-3 py-2 text-sm text-rose-200">
+        <p className="mb-4 rounded-md border border-trust-fail-border bg-trust-fail-bg px-3 py-2 text-sm text-trust-fail-text">
           {error}
         </p>
       )}
@@ -436,6 +441,8 @@ export default function App() {
           onRefresh={refreshLedger}
           busy={busy}
         />
+
+        <NarratorPanel />
       </div>
     </div>
   );

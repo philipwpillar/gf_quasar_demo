@@ -74,12 +74,15 @@ export default function LedgerInspector({
   }
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <section className="card">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Ledger inspector</h2>
-          <p className="text-sm text-slate-400">
-            Hash-chained forensic log from <code className="text-slate-300">/ledger/export</code>
+          <h2 className="section-title">Ledger inspector</h2>
+          <p className="section-subtitle">
+            Hash-chained forensic log from{" "}
+            <code className="rounded bg-surface-muted px-1 py-0.5 font-mono text-xs text-ink-secondary">
+              /ledger/export
+            </code>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -87,7 +90,7 @@ export default function LedgerInspector({
             type="button"
             disabled={busy}
             onClick={handleVerify}
-            className="rounded bg-indigo-800 px-3 py-1.5 text-sm font-medium text-indigo-50 hover:bg-indigo-700 disabled:opacity-50"
+            className="btn-primary px-3 py-1.5 text-sm"
           >
             Verify chain
           </button>
@@ -95,7 +98,7 @@ export default function LedgerInspector({
             type="button"
             disabled={busy || entries.length === 0}
             onClick={handleIllustrativeTamper}
-            className="rounded border border-amber-700 bg-amber-950 px-3 py-1.5 text-sm font-medium text-amber-200 hover:bg-amber-900 disabled:opacity-50"
+            className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-3 py-1.5 text-sm font-medium text-trust-warn-text hover:opacity-90 disabled:opacity-50"
           >
             Illustrative tamper (local copy)
           </button>
@@ -103,7 +106,7 @@ export default function LedgerInspector({
             <button
               type="button"
               onClick={clearIllustrative}
-              className="rounded bg-slate-700 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-600"
+              className="btn-secondary px-3 py-1.5 text-sm"
             >
               Reset to live export
             </button>
@@ -112,7 +115,7 @@ export default function LedgerInspector({
       </header>
 
       {illustrativeEntries && (
-        <p className="mb-3 rounded border border-amber-700 bg-amber-950 px-3 py-2 text-sm text-amber-100">
+        <p className="mb-4 rounded-md border border-trust-warn-border bg-trust-warn-bg px-3 py-2 text-sm text-trust-warn-text">
           Illustrative mode: tamper applied to a <strong>local copy only</strong>. The
           backend ledger is unchanged.
         </p>
@@ -120,13 +123,14 @@ export default function LedgerInspector({
 
       {displayVerify && (
         <div
-          className={`mb-4 rounded border px-3 py-2 text-sm ${
+          className={`mb-5 flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm ${
             displayVerify.intact
-              ? "border-emerald-700 bg-emerald-950 text-emerald-100"
-              : "border-rose-700 bg-rose-950 text-rose-100"
+              ? "border-trust-ok-border bg-trust-ok-bg text-trust-ok-text"
+              : "border-trust-fail-border bg-trust-fail-bg text-trust-fail-text"
           }`}
           data-testid="ledger-verify-result"
         >
+          <span aria-hidden="true">{displayVerify.intact ? "✓" : "✗"}</span>
           {displayVerify.intact ? (
             <span>Chain intact</span>
           ) : (
@@ -138,26 +142,26 @@ export default function LedgerInspector({
       )}
 
       {sortedForDisplay.length === 0 ? (
-        <p className="text-sm text-slate-400">No ledger entries yet.</p>
+        <p className="text-sm text-ink-secondary">No ledger entries yet.</p>
       ) : (
-        <ol className="space-y-2" data-testid="ledger-entry-list">
+        <ol className="space-y-3" data-testid="ledger-entry-list">
           {sortedForDisplay.map((entry) => (
             <li
               key={entry.seq}
-              className="rounded border border-slate-700 bg-slate-950 p-3 text-sm"
+              className="rounded-md border border-line bg-surface-inset p-4 text-sm"
               data-testid={`ledger-entry-${entry.seq}`}
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-slate-500">#{entry.seq}</span>
-                <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-xs text-indigo-200">
+                <span className="font-mono text-xs font-semibold text-ink-muted">
+                  #{entry.seq}
+                </span>
+                <span className="rounded-md border border-line bg-surface-card px-2 py-0.5 font-mono text-xs font-medium text-accent">
                   {entry.kind}
                 </span>
-                <span className="text-xs text-slate-500">{entry.occurred_at}</span>
+                <span className="text-xs text-ink-faint">{entry.occurred_at}</span>
               </div>
-              <pre className="mt-2 overflow-x-auto font-mono text-xs text-slate-400">
-                {JSON.stringify(entry.payload, null, 2)}
-              </pre>
-              <p className="mt-1 font-mono text-xs text-slate-600">
+              <pre className="ledger-pre">{JSON.stringify(entry.payload, null, 2)}</pre>
+              <p className="mt-2 font-mono text-xs text-ink-faint">
                 prev {entry.prev_hash.slice(0, 12)}… → hash {entry.entry_hash.slice(0, 12)}…
               </p>
             </li>

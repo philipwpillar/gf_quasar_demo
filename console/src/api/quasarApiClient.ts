@@ -6,6 +6,8 @@ import type {
   EnrolResponse,
   LedgerEntry,
   LedgerVerifyResponse,
+  NarratorAnswer,
+  NarratorQuery,
   RobotComposition,
   SiteAdmissionRequest,
   SiteAdmissionVerdict,
@@ -104,4 +106,15 @@ export async function verifyLedger(): Promise<LedgerVerifyResponse> {
 
 export async function exportLedger(): Promise<LedgerEntry[]> {
   return requestJson("/ledger/export");
+}
+
+export async function queryAssistant(
+  question: string,
+  scope?: Pick<NarratorQuery, "config_id" | "robot_id">,
+): Promise<NarratorAnswer> {
+  const body: NarratorQuery = { question, ...scope };
+  return requestJson("/assistant/query", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }

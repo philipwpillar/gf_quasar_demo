@@ -128,3 +128,17 @@ export interface SiteGateConfig {
   task_class: string;
   zone: string;
 }
+
+/** Mirrors narrator/narrator_models.py — NarratorQuery */
+export interface NarratorQuery {
+  question: string;
+  config_id?: string | null;
+  robot_id?: string | null;
+}
+
+/** Mirrors narrator/narrator_models.py — NarratorAnswer */
+export interface NarratorAnswer {
+  answer: string;
+  grounded_on: number[];
+  llm_configured: boolean;
+}

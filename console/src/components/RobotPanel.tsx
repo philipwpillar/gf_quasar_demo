@@ -9,20 +9,24 @@ interface RobotPanelProps {
 function statusPill(ok: boolean | undefined, okLabel: string, failLabel: string) {
   if (ok === undefined) {
     return (
-      <span className="rounded bg-slate-700 px-2 py-1 text-xs font-semibold text-slate-200">
+      <span className="inline-flex items-center gap-1 rounded-md border border-trust-neutral-border bg-trust-neutral-bg px-2.5 py-1 text-xs font-semibold text-trust-neutral-text">
+        <span aria-hidden="true">○</span>
         Pending
       </span>
     );
   }
+  if (ok) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md border border-trust-ok-border bg-trust-ok-bg px-2.5 py-1 text-xs font-semibold text-trust-ok-text">
+        <span aria-hidden="true">✓</span>
+        {okLabel}
+      </span>
+    );
+  }
   return (
-    <span
-      className={`rounded px-2 py-1 text-xs font-semibold ${
-        ok
-          ? "bg-emerald-900 text-emerald-100 border border-emerald-600"
-          : "bg-rose-900 text-rose-100 border border-rose-600"
-      }`}
-    >
-      {ok ? okLabel : failLabel}
+    <span className="inline-flex items-center gap-1 rounded-md border border-trust-fail-border bg-trust-fail-bg px-2.5 py-1 text-xs font-semibold text-trust-fail-text">
+      <span aria-hidden="true">✗</span>
+      {failLabel}
     </span>
   );
 }
@@ -41,23 +45,21 @@ export default function RobotPanel({
     <article
       className={`rounded-lg border p-4 ${
         highlightFailure && composition && !composition.composed
-          ? "border-rose-600 bg-rose-950/40"
-          : "border-slate-700 bg-slate-900"
+          ? "border-trust-fail-border bg-trust-fail-bg"
+          : "border-line bg-surface-card"
       }`}
     >
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-mono text-base font-semibold text-slate-100">
-              {robot.robot_id}
-            </h3>
+            <h3 className="font-mono text-base font-semibold text-ink">{robot.robot_id}</h3>
             {robot.isSynthetic && (
-              <span className="rounded bg-amber-950 px-2 py-0.5 text-xs font-semibold uppercase text-amber-300 border border-amber-700">
+              <span className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-2 py-0.5 text-xs font-semibold uppercase text-trust-warn-text">
                 Synthetic robot
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400">vendor: {robot.vendor_key_id}</p>
+          <p className="text-xs text-ink-muted">vendor: {robot.vendor_key_id}</p>
         </div>
         {statusPill(
           composition?.composed,
@@ -66,8 +68,8 @@ export default function RobotPanel({
         )}
       </header>
 
-      <div className="mb-3">
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className="mb-4">
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
           Constituent modules
         </h4>
         <ul className="space-y-2">
@@ -78,14 +80,15 @@ export default function RobotPanel({
             return (
               <li
                 key={moduleId}
-                className={`flex items-center justify-between rounded border px-2 py-1.5 text-sm ${
+                className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
                   failed
-                    ? "border-rose-600 bg-rose-950/50 text-rose-100"
-                    : "border-slate-700 bg-slate-950 text-slate-200"
+                    ? "border-trust-fail-border bg-white text-trust-fail-text"
+                    : "border-line bg-surface-inset text-ink-secondary"
                 }`}
               >
                 <span className="font-mono">{moduleId}</span>
-                <span className="text-xs">
+                <span className="inline-flex items-center gap-1 text-xs font-medium">
+                  {failed && <span aria-hidden="true">✗</span>}
                   {ref
                     ? ref.attested
                       ? "attested"
@@ -104,20 +107,25 @@ export default function RobotPanel({
 
       {composition && (
         <div className="space-y-2 text-sm">
-          <p className="text-slate-300">
-            <span className="font-semibold text-slate-400">Backend reasons: </span>
+          <p className="text-ink-secondary">
+            <span className="font-semibold text-ink">Backend reasons: </span>
             {composition.reasons.join(" · ")}
           </p>
-          <p className="font-mono text-xs text-slate-500">
+          <p className="font-mono text-xs text-ink-muted">
             ledger seq {composition.ledger_seq} · chain head {composition.chain_head.slice(0, 16)}…
           </p>
         </div>
       )}
 
       {failedModuleIds.length > 0 && (
-        <p className="mt-3 rounded border border-rose-700 bg-rose-950 px-2 py-1.5 text-sm text-rose-100">
-          Untrusted because module(s) failed mate-time attestation:{" "}
-          <span className="font-mono font-semibold">{failedModuleIds.join(", ")}</span>
+        <p className="mt-4 flex items-start gap-2 rounded-md border border-trust-fail-border bg-white px-3 py-2 text-sm text-trust-fail-text">
+          <span aria-hidden="true" className="mt-0.5">
+            ✗
+          </span>
+          <span>
+            Untrusted because module(s) failed mate-time attestation:{" "}
+            <span className="font-mono font-semibold">{failedModuleIds.join(", ")}</span>
+          </span>
         </p>
       )}
     </article>

@@ -12,13 +12,13 @@ interface ModuleAssemblyPanelProps {
   error: string | null;
 }
 
-function trustBadge(verified: boolean | undefined): string {
+function trustBadgeClasses(verified: boolean | undefined): string {
   if (verified === undefined) {
-    return "bg-slate-700 text-slate-200";
+    return "border-trust-neutral-border bg-trust-neutral-bg text-trust-neutral-text";
   }
   return verified
-    ? "bg-emerald-900 text-emerald-100 border border-emerald-600"
-    : "bg-rose-900 text-rose-100 border border-rose-600";
+    ? "border-trust-ok-border bg-trust-ok-bg text-trust-ok-text"
+    : "border-trust-fail-border bg-trust-fail-bg text-trust-fail-text";
 }
 
 function trustLabel(verified: boolean | undefined): string {
@@ -26,6 +26,13 @@ function trustLabel(verified: boolean | undefined): string {
     return "Not attested yet";
   }
   return verified ? "Verified: true" : "Verified: false";
+}
+
+function trustIcon(verified: boolean | undefined): string {
+  if (verified === undefined) {
+    return "○";
+  }
+  return verified ? "✓" : "✗";
 }
 
 export default function ModuleAssemblyPanel({
@@ -40,11 +47,11 @@ export default function ModuleAssemblyPanel({
   error,
 }: ModuleAssemblyPanelProps) {
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <section className="card">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Module assembly</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="section-title">Module assembly</h2>
+          <p className="section-subtitle">
             Tier 1 — mate-time attestation per module (backend-signed ledger entries)
           </p>
         </div>
@@ -53,7 +60,7 @@ export default function ModuleAssemblyPanel({
             type="button"
             disabled={busy}
             onClick={onEnrolRealModule}
-            className="rounded bg-emerald-800 px-3 py-1.5 text-sm font-medium text-emerald-50 hover:bg-emerald-700 disabled:opacity-50"
+            className="btn-success px-3 py-1.5 text-sm"
           >
             Enrol real SE module
           </button>
@@ -61,7 +68,7 @@ export default function ModuleAssemblyPanel({
             type="button"
             disabled={busy}
             onClick={onEnrolSyntheticModules}
-            className="rounded bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Enrol synthetic modules
           </button>
@@ -69,7 +76,7 @@ export default function ModuleAssemblyPanel({
             type="button"
             disabled={busy || modules.length === 0}
             onClick={onAttestAll}
-            className="rounded bg-indigo-800 px-3 py-1.5 text-sm font-medium text-indigo-50 hover:bg-indigo-700 disabled:opacity-50"
+            className="btn-primary px-3 py-1.5 text-sm"
           >
             Attest all
           </button>
@@ -77,13 +84,13 @@ export default function ModuleAssemblyPanel({
       </header>
 
       {error && (
-        <p className="mb-3 rounded border border-rose-700 bg-rose-950 px-3 py-2 text-sm text-rose-200">
+        <p className="mb-4 rounded-md border border-trust-fail-border bg-trust-fail-bg px-3 py-2 text-sm text-trust-fail-text">
           {error}
         </p>
       )}
 
       {modules.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-ink-secondary">
           No modules enrolled. Enrol the real secure-element-backed module and synthetic
           stand-ins to begin assembly.
         </p>
@@ -94,7 +101,7 @@ export default function ModuleAssemblyPanel({
             return (
               <li
                 key={mod.module_id}
-                className="rounded border border-slate-700 bg-slate-950 p-3"
+                className="rounded-md border border-line bg-surface-inset p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <label className="flex cursor-pointer items-start gap-3">
@@ -102,25 +109,25 @@ export default function ModuleAssemblyPanel({
                       type="checkbox"
                       checked={selected}
                       onChange={() => onToggleModule(mod.module_id)}
-                      className="mt-1"
+                      className="mt-1 accent-accent"
                     />
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-sm font-semibold text-slate-100">
+                        <span className="font-mono text-sm font-semibold text-ink">
                           {mod.module_id}
                         </span>
                         {mod.isRealSecureElement && (
-                          <span className="rounded bg-emerald-950 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-emerald-300 border border-emerald-700">
+                          <span className="rounded-md border border-trust-ok-border bg-trust-ok-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-trust-ok-text">
                             Real SE chain
                           </span>
                         )}
                         {mod.isSynthetic && (
-                          <span className="rounded bg-amber-950 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber-300 border border-amber-700">
+                          <span className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-trust-warn-text">
                             Synthetic
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 font-mono text-xs text-slate-500 break-all">
+                      <p className="mt-1 font-mono text-xs text-ink-muted break-all">
                         {mod.public_key_hex}
                       </p>
                     </div>
@@ -128,12 +135,13 @@ export default function ModuleAssemblyPanel({
 
                   <div className="flex flex-col items-end gap-2">
                     <span
-                      className={`rounded px-2 py-1 text-xs font-semibold ${trustBadge(mod.attestation?.verified)}`}
+                      className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-semibold ${trustBadgeClasses(mod.attestation?.verified)}`}
                     >
+                      <span aria-hidden="true">{trustIcon(mod.attestation?.verified)}</span>
                       {trustLabel(mod.attestation?.verified)}
                     </span>
                     {mod.attestation && (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-ink-muted">
                         reason: {mod.attestation.reason}
                       </span>
                     )}
@@ -141,7 +149,7 @@ export default function ModuleAssemblyPanel({
                       type="button"
                       disabled={busy}
                       onClick={() => onAttestModule(mod.module_id)}
-                      className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-100 hover:bg-slate-600 disabled:opacity-50"
+                      className="btn-secondary px-2 py-1 text-xs"
                     >
                       Attest
                     </button>

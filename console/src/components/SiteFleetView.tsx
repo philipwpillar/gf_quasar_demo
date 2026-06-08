@@ -18,20 +18,24 @@ interface SiteFleetViewProps {
 function admissionPill(admitted: boolean | undefined) {
   if (admitted === undefined) {
     return (
-      <span className="rounded bg-slate-700 px-2 py-1 text-xs font-semibold text-slate-200">
+      <span className="inline-flex items-center gap-1 rounded-md border border-trust-neutral-border bg-trust-neutral-bg px-2.5 py-1 text-xs font-semibold text-trust-neutral-text">
+        <span aria-hidden="true">○</span>
         Not admitted yet
       </span>
     );
   }
+  if (admitted) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-md border border-trust-ok-border bg-trust-ok-bg px-2.5 py-1 text-xs font-semibold text-trust-ok-text">
+        <span aria-hidden="true">✓</span>
+        Admitted: true
+      </span>
+    );
+  }
   return (
-    <span
-      className={`rounded px-2 py-1 text-xs font-semibold ${
-        admitted
-          ? "bg-emerald-900 text-emerald-100 border border-emerald-600"
-          : "bg-rose-900 text-rose-100 border border-rose-600"
-      }`}
-    >
-      {admitted ? "Admitted: true" : "Admitted: false (DENIED)"}
+    <span className="inline-flex items-center gap-1 rounded-md border border-trust-fail-border bg-trust-fail-bg px-2.5 py-1 text-xs font-semibold text-trust-fail-text">
+      <span aria-hidden="true">✗</span>
+      Admitted: false (DENIED)
     </span>
   );
 }
@@ -55,39 +59,40 @@ function PropagationChain({
 
   return (
     <div
-      className="mb-6 rounded-lg border-2 border-rose-600 bg-rose-950/30 p-4"
+      className="mb-6 rounded-lg border-2 border-trust-fail-border bg-trust-fail-bg p-5"
       data-testid="propagation-chain"
     >
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-rose-200">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-trust-fail-text">
+        <span aria-hidden="true">✗</span>
         Propagating failure chain (backend-signed verdicts)
       </h3>
-      <ol className="space-y-3">
+      <ol className="relative space-y-4 border-l-2 border-trust-fail-border/40 pl-5">
         <li className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded bg-rose-900 px-2 py-1 font-mono text-xs text-rose-100 border border-rose-600">
+          <span className="rounded-md border border-trust-fail-border bg-white px-2 py-1 font-mono text-xs font-semibold text-trust-fail-text">
             Tier 1 · Module
           </span>
-          <span className="font-mono font-semibold text-rose-100">{failingModule}</span>
-          <span className="text-rose-200">mate-time attestation FAILED</span>
-          <span aria-hidden="true" className="text-rose-400">
-            →
+          <span className="font-mono font-semibold text-ink">{failingModule}</span>
+          <span className="text-trust-fail-text">mate-time attestation FAILED</span>
+          <span aria-hidden="true" className="text-trust-fail-border">
+            ↓
           </span>
         </li>
         <li className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded bg-rose-900 px-2 py-1 font-mono text-xs text-rose-100 border border-rose-600">
+          <span className="rounded-md border border-trust-fail-border bg-white px-2 py-1 font-mono text-xs font-semibold text-trust-fail-text">
             Tier 2 · Robot
           </span>
-          <span className="font-mono font-semibold text-rose-100">{robot.robot_id}</span>
-          <span className="text-rose-200">NOT COMPOSED (untrusted)</span>
-          <span aria-hidden="true" className="text-rose-400">
-            →
+          <span className="font-mono font-semibold text-ink">{robot.robot_id}</span>
+          <span className="text-trust-fail-text">NOT COMPOSED (untrusted)</span>
+          <span aria-hidden="true" className="text-trust-fail-border">
+            ↓
           </span>
         </li>
         <li className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded bg-rose-900 px-2 py-1 font-mono text-xs text-rose-100 border border-rose-600">
+          <span className="rounded-md border border-trust-fail-border bg-white px-2 py-1 font-mono text-xs font-semibold text-trust-fail-text">
             Tier 3 · Site gate
           </span>
-          <span className="font-mono font-semibold text-rose-100">{robot.robot_id}</span>
-          <span className="text-rose-200">
+          <span className="font-mono font-semibold text-ink">{robot.robot_id}</span>
+          <span className="text-trust-fail-text">
             {admission?.admitted === false
               ? "DENIED site admission"
               : "admission pending"}
@@ -95,12 +100,12 @@ function PropagationChain({
         </li>
       </ol>
       {admission && (
-        <p className="mt-3 text-sm text-rose-100">
-          <span className="font-semibold">Signed site verdict reasons: </span>
+        <p className="mt-4 text-sm text-ink-secondary">
+          <span className="font-semibold text-ink">Signed site verdict reasons: </span>
           {admission.reasons.join(" · ")}
         </p>
       )}
-      <p className="mt-2 text-xs text-rose-300/80">
+      <p className="mt-2 text-xs text-ink-muted">
         Each tier&apos;s ledger entry is behind this chain — inspect the ledger below.
       </p>
     </div>
@@ -116,22 +121,22 @@ export default function SiteFleetView({
   const propagationRobot = robots.find((r) => r.robot_id === propagationRobotId);
 
   return (
-    <section className="rounded-lg border border-slate-700 bg-slate-900 p-4">
-      <header className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-100">Site fleet view</h2>
-        <p className="text-sm text-slate-400">
+    <section className="card">
+      <header className="mb-5">
+        <h2 className="section-title">Site fleet view</h2>
+        <p className="section-subtitle">
           Tier 3 site gate — task class and zone from backend policy (stub breadth)
         </p>
       </header>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded border border-slate-700 bg-slate-950 p-3">
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-inset p-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">Site gate</p>
-          <p className="font-mono text-sm text-slate-200">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">Site gate</p>
+          <p className="font-mono text-sm text-ink">
             task_class={gate.task_class} · zone={gate.zone}
           </p>
         </div>
-        <span className="rounded bg-amber-950 px-2 py-1 text-xs font-semibold uppercase text-amber-300 border border-amber-700">
+        <span className="rounded-md border border-trust-warn-border bg-trust-warn-bg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-trust-warn-text">
           policy_mode: {POLICY_MODE_STUB}
         </span>
       </div>
@@ -144,32 +149,32 @@ export default function SiteFleetView({
       )}
 
       {robots.length === 0 ? (
-        <p className="text-sm text-slate-400">No robots on site yet. Compose and admit below.</p>
+        <p className="text-sm text-ink-secondary">No robots on site yet. Compose and admit below.</p>
       ) : (
         <div className="space-y-6">
           {robots.map((robot) => (
             <div key={robot.robot_id} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-700 bg-slate-950 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface-inset p-4">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                  <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
                     Site admission verdict
                   </p>
-                  <p className="font-mono text-sm text-slate-200">{robot.robot_id}</p>
+                  <p className="font-mono text-sm font-medium text-ink">{robot.robot_id}</p>
                 </div>
                 {admissionPill(robot.admission?.admitted)}
               </div>
 
               {robot.admission && (
-                <div className="rounded border border-slate-700 bg-slate-950 p-3 text-sm text-slate-300">
+                <div className="rounded-md border border-line bg-surface-card p-4 text-sm text-ink-secondary">
                   <p>
-                    <span className="font-semibold text-slate-400">Backend reasons: </span>
+                    <span className="font-semibold text-ink">Backend reasons: </span>
                     {robot.admission.reasons.join(" · ")}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-slate-500">
+                  <p className="mt-1.5 font-mono text-xs text-ink-muted">
                     policy_mode={robot.admission.policy_mode} · ledger seq{" "}
                     {robot.admission.ledger_seq}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-slate-600 break-all">
+                  <p className="mt-1 font-mono text-xs text-ink-faint break-all">
                     signature {robot.admission.signature_hex.slice(0, 24)}…
                   </p>
                 </div>
