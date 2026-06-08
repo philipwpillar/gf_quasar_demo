@@ -1,0 +1,270 @@
+===============================================================================
+ GRAVITONFORGE QUASAR — DEMO USER MANUAL
+ How to run the demo locally on a Mac, what it does, and how to drive it.
+===============================================================================
+
+This manual covers running the Quasar demo on your own machine. The demo is a
+LOCAL application: it binds to localhost only and is not exposed to the
+internet. Everything runs in two processes on your Mac — a backend (the trust
+core and API) and a console (the web UI) — started together by one launcher.
+
+Audience: you, running and presenting the demo. No coding required to run it.
+Some terminal use is described for first-time setup and troubleshooting.
+
+
+-------------------------------------------------------------------------------
+ 0.  WHAT THE DEMO IS (one paragraph)
+-------------------------------------------------------------------------------
+
+On screen, an operator assembles robots from modules and admits them to a
+multi-vendor site. The system verifies each module's cryptographic identity
+(mate-time attestation against a secure-element-style key), composes verified
+modules into a robot identity, decides whether that robot is cleared for a task
+in a zone, issues a SIGNED cleared / not-cleared verdict with plain-language
+reasons, and writes every step to an append-only, hash-chained, tamper-evident
+ledger. An LLM assistant can answer plain-language questions about the record
+but never decides anything. Two components are REAL (attestation + ledger); the
+policy breadth and the behaviour corpus are STUBBED and labelled on screen.
+
+
+-------------------------------------------------------------------------------
+ 1.  WHAT YOU NEED (one-time prerequisites)
+-------------------------------------------------------------------------------
+
+Installed on your Mac:
+  - Python 3.11 or newer        (check: python3 --version)
+  - Node.js 18 or newer + npm   (check: node --version  and  npm --version)
+  - A web browser (Safari, Chrome, etc.)
+
+If either is missing:
+  - Python:  https://www.python.org/downloads/  (or: brew install python)
+  - Node.js: https://nodejs.org/  (or: brew install node)
+
+You do NOT need to install anything else by hand — the launcher installs the
+project's Python and Node dependencies for you on first run.
+
+
+-------------------------------------------------------------------------------
+ 2.  ONE-TIME SETUP
+-------------------------------------------------------------------------------
+
+  STEP 1 — Get the repo onto your Mac.
+    Clone or download it so you have the project folder (gf_quasar_demo) with
+    api/, ledger/, attestation/, policy/, site/, corpus/, narrator/, console/,
+    and the launcher file run_quasar_demo.command at the top level.
+
+  STEP 2 — Create your .env file.
+    In the repo root, copy the template and fill it in:
+        cp .env.example .env
+    Then open .env in a text editor and set the values (see Section 3).
+    IMPORTANT: .env holds secrets. It is gitignored and must NEVER be committed
+    or shared. .env.example (the empty template) is the only one that is shared.
+
+  STEP 3 — Make the launcher double-clickable (terminal, one time).
+    In the repo root:
+        chmod +x run_quasar_demo.command
+    This lets Finder run it when you double-click.
+
+  STEP 4 — First launch from a terminal (recommended once).
+    The very first time, run it from a terminal rather than double-clicking, so
+    you can see any setup errors directly:
+        ./run_quasar_demo.command
+    First run is slow: it builds the Python virtual environment, installs
+    backend dependencies, and runs npm install for the console. Later runs are
+    fast because these are skipped when already present.
+    Once you've seen it come up cleanly once, double-clicking is reliable.
+
+
+-------------------------------------------------------------------------------
+ 3.  THE .env FILE (what each value does)
+-------------------------------------------------------------------------------
+
+Fill these in your .env (NOT .env.example). All are optional — the demo runs
+without them — but each unlocks something:
+
+  # --- LLM narrator (the plain-language assistant) ---
+  QUASAR_LLM_API_KEY=sk-or-...your OpenRouter key...
+  QUASAR_LLM_MODEL=nvidia/nemotron-3-super-120b-a12b:free
+  QUASAR_LLM_BASE_URL=https://openrouter.ai/api/v1
+      If QUASAR_LLM_API_KEY is unset, the narrator still responds but says it is
+      "not configured" instead of answering. The rest of the demo is unaffected.
+      Verify the exact model slug on OpenRouter's models page before relying on
+      it; free-tier models can be slower and rate-limited (fine for a narrator
+      answering one question at a time).
+
+  # --- Signing-authority keys (so signed verdicts survive a restart) ---
+  QUASAR_CLEARANCE_AUTHORITY_KEY_HEX=...64 hex chars...
+  QUASAR_SITE_AUTHORITY_KEY_HEX=...64 hex chars...
+      If unset, the app generates a fresh key each start. That's fine for a
+      single session, but verdicts signed before a restart won't verify after
+      one. For a stable demo where you show offline verification, set these.
+      Generate a key with:
+        python3 -c "from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey; print(Ed25519PrivateKey.generate().private_bytes_raw().hex())"
+      Run it twice; paste one value into each variable.
+
+  # --- Local dev switches ---
+  QUASAR_ENABLE_CORS=1
+  QUASAR_CORS_ORIGIN=http://localhost:5173
+      The console (:5173) calls the API (:8000), which is cross-origin, so CORS
+      must allow the console. The launcher sets these for you if unset.
+
+  QUASAR_ENABLE_DEV_HOOKS=1
+      Enables the demo control that triggers a REAL attestation failure for the
+      propagating-failure centrepiece (see Section 5). If you want to show one
+      module failing and denial cascading up the tiers, set this to 1. Left
+      unset, you can show the trusted path only. This is a demo-only switch and
+      should stay OFF in any non-local deployment.
+
+
+-------------------------------------------------------------------------------
+ 4.  RUNNING THE DEMO (every time)
+-------------------------------------------------------------------------------
+
+  1. Double-click  run_quasar_demo.command  in Finder.
+     (Or run ./run_quasar_demo.command from a terminal.)
+
+  2. A Terminal window opens and shows startup logs. Wait a few seconds.
+
+  3. Your default browser opens to  http://localhost:5173  — the console.
+
+  4. The backend API is at  http://localhost:8000  (interactive API docs at
+     http://localhost:8000/docs if you want to see the raw endpoints).
+
+  THE TERMINAL WINDOW IS THE ON/OFF SWITCH.
+    - Leave it open the whole time you are using the demo.
+    - To STOP everything: close that Terminal window, or press Ctrl-C in it.
+      Both servers shut down cleanly.
+    - Closing the BROWSER does NOT stop the demo. The servers keep running.
+      If you close the browser by accident, just reopen http://localhost:5173.
+
+  ONE LAUNCHER AT A TIME.
+    Don't double-click the launcher again while it's already running — a second
+    copy will fail trying to use the same ports. Stop the first one first.
+
+  If Gatekeeper warns about an unidentified developer on first double-click:
+    right-click the file -> Open -> Open. You only need to do this once.
+
+
+-------------------------------------------------------------------------------
+ 5.  DRIVING THE DEMO (the story to tell on screen)
+-------------------------------------------------------------------------------
+
+The console shows a site -> robots -> modules hierarchy. The demo has two
+arcs; show the trusted path first, then the failure.
+
+  ARC 1 — THE TRUSTED PATH (everything works)
+    a. Enrol one or more modules (each gets a cryptographic identity).
+    b. Attest the modules (each proves it is genuine via challenge-response).
+    c. Compose a robot from the attested modules (robot is TRUSTED because
+       every module passed).
+    d. Admit the robot to the site for a task in a permitted zone -> CLEARED,
+       with a signed verdict and plain-language reasons.
+    Point out: the verdict is cryptographically signed and can be verified by
+    anyone, and every step was written to the tamper-evident ledger.
+
+  ARC 2 — THE PROPAGATING FAILURE (the moment that lands)
+    Requires QUASAR_ENABLE_DEV_HOOKS=1 in .env.
+    a. Trigger a module failure (the console's demo control swaps a module's
+       signer, causing a REAL mate-time attestation failure — not a fake one).
+    b. Compose the robot -> it is now UNTRUSTED, because one module failed.
+    c. Admit it to the site -> DENIED, and the reason traces all the way down
+       to the specific failing module.
+    The whole point: bad module -> untrusted robot -> denied admission, with
+    every link recorded. That single cascade proves the architecture.
+
+  THE LEDGER INSPECTOR
+    Shows the hash-chained record of everything that happened, in order. There
+    is a "Verify chain" control that confirms the chain is intact (and, if a
+    past entry were altered, would name the exact point it broke). This is the
+    "chain of custody an investigator would trust" claim, made concrete.
+
+  THE NARRATOR (if an LLM key is configured)
+    Ask it plain-language questions about the record, e.g.:
+      - "Why was this robot denied admission?"
+      - "Which module failed attestation, and when?"
+      - "Has this ledger been tampered with?"
+    It explains the record. It never makes the clearance decision itself — it
+    only reports what the verified record and the backend's checks show.
+
+  HONESTY ON SCREEN
+    The demo labels what is REAL (attestation + ledger) versus STUBBED (the
+    policy breadth, shown as policy_mode = "stub_curated_single_task", and the
+    synthetic behaviour data). This is deliberate: a demo that hides its seams
+    invites the wrong questions. Say so out loud — it builds credibility.
+
+
+-------------------------------------------------------------------------------
+ 6.  TROUBLESHOOTING
+-------------------------------------------------------------------------------
+
+  The Terminal window opened and closed instantly / I saw an error flash.
+    Run it from a terminal to see the message:  ./run_quasar_demo.command
+    Read the first error line. Common causes are below.
+
+  "address already in use" (port 8000 or 5173).
+    A previous run is still going, or a stuck process holds the port. Free them:
+        lsof -ti:8000,5173 | xargs kill
+    Then launch again.
+
+  The browser opened but the page is blank or every action shows an error.
+    Almost always CORS. Make sure your .env (or environment) has:
+        QUASAR_ENABLE_CORS=1
+        QUASAR_CORS_ORIGIN=http://localhost:5173
+    Then stop and relaunch. Check the browser's developer console (View ->
+    Developer) for a CORS message to confirm.
+
+  The narrator says it is "not configured."
+    QUASAR_LLM_API_KEY is not set or not loaded. Put it in .env and relaunch.
+    Confirm the model slug in QUASAR_LLM_MODEL is a current OpenRouter ID.
+
+  The narrator errors or times out.
+    The model slug may be wrong/unavailable, or the free tier is rate-limiting.
+    Verify the slug on OpenRouter; try a different model ID. The rest of the
+    demo works regardless of the narrator.
+
+  The propagating-failure control isn't available.
+    Set QUASAR_ENABLE_DEV_HOOKS=1 in .env and relaunch. It is off by default.
+
+  Signed verdicts stopped verifying after I restarted.
+    You're using ephemeral authority keys. Set QUASAR_CLEARANCE_AUTHORITY_KEY_HEX
+    and QUASAR_SITE_AUTHORITY_KEY_HEX in .env (Section 3) so they persist.
+
+  First run is taking a long time.
+    Expected — it's installing dependencies. Subsequent runs are fast.
+
+  Gatekeeper won't let the .command run.
+    Right-click the file -> Open -> Open (one time only).
+
+
+-------------------------------------------------------------------------------
+ 7.  STOPPING AND CLEANING UP
+-------------------------------------------------------------------------------
+
+  - To stop: close the launcher's Terminal window, or press Ctrl-C in it.
+  - To confirm nothing is left running:
+        lsof -ti:8000,5173
+    (No output means both ports are free.)
+  - Nothing persists between runs by design: the ledger is in-memory, so each
+    launch starts with a fresh, empty record. This is intentional for a demo —
+    you get a clean slate every time.
+
+
+-------------------------------------------------------------------------------
+ 8.  SAFETY AND SECRETS (read once)
+-------------------------------------------------------------------------------
+
+  - This is a LOCAL demo. It binds to 127.0.0.1 (localhost) only and is not
+    reachable from the internet.
+  - .env holds your secrets (LLM key, authority keys). It is gitignored. Never
+    commit it, paste it into chat, or share it. If a key is ever exposed,
+    rotate it (e.g. regenerate the OpenRouter key in your OpenRouter account).
+  - QUASAR_ENABLE_DEV_HOOKS enables a control that deliberately breaks
+    attestation for the demo. Keep it OFF anywhere that isn't your local
+    machine.
+  - The signing-authority private keys never leave your machine and are never
+    written into the ledger or logs.
+
+===============================================================================
+ END. Keep this manual with the repo. For what the system is and how it's
+ built, see README.md and docs/QUASAR_CODEBASE_ORGANIZATION.txt.
+===============================================================================
