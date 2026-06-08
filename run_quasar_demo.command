@@ -100,4 +100,4 @@ echo "Leave this window open. Press Ctrl-C (or close it) to stop everything."
 echo
 
 # Keep the script alive until interrupted; if either process dies, exit.
-wait -n
+wait
