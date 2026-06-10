@@ -36,6 +36,13 @@ function trustIcon(verified: boolean | undefined): string {
   return verified ? "✓" : "✗";
 }
 
+function algorithmTag(keyAlgorithm: string | undefined): string {
+  if (keyAlgorithm === "ecdsa_p256") {
+    return "P-256 · software";
+  }
+  return "Ed25519 · software";
+}
+
 export default function ModuleAssemblyPanel({
   modules,
   selectedModuleIds,
@@ -128,6 +135,9 @@ export default function ModuleAssemblyPanel({
                             Synthetic
                           </span>
                         )}
+                        <span className="rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink-secondary">
+                          {algorithmTag(mod.key_algorithm)}
+                        </span>
                         {mod.revoked && (
                           <span className="rounded-md border border-trust-fail-border bg-trust-fail-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-trust-fail-text">
                             Revoked

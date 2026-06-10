@@ -18,13 +18,21 @@ class AttestationReason(str, Enum):
     MODULE_REVOKED = "module_revoked"
 
 
+class KeyAlgorithm(str, Enum):
+    """Cryptographic algorithm bound to an enrolled module identity."""
+
+    ED25519 = "ed25519"
+    ECDSA_P256 = "ecdsa_p256"
+
+
 class ModuleIdentity(BaseModel):
-    """Enrolled module identity bound to an Ed25519 public key."""
+    """Enrolled module identity bound to a public key and its algorithm."""
 
     model_config = ConfigDict(extra="forbid")
 
     module_id: str
     public_key_hex: str
+    key_algorithm: KeyAlgorithm = KeyAlgorithm.ED25519
 
 
 class Challenge(BaseModel):

@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from attestation import AttestationService, SoftwareEd25519Signer
+from attestation import AttestationService, Signer, SoftwareEd25519Signer
 from corpus import CorpusService
 from ledger import Ledger
 from narrator import NarratorService
@@ -85,8 +85,7 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     app.state.site = site
     app.state.corpus = corpus
     app.state.narrator = narrator
-    app.state.module_signers: dict[str, SoftwareEd25519Signer] = {}
-    app.state.new_module_signer = SoftwareEd25519Signer
+    app.state.module_signers: dict[str, Signer] = {}
     app.state.vendor_signers: dict[str, SoftwareEd25519Signer] = {}
     app.state.new_vendor_signer = SoftwareEd25519Signer
 

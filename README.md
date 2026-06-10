@@ -45,7 +45,7 @@ labelled on screen.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Mate-time attestation | **REAL** | Ed25519 / secure-element signatures, freshness-bound challenge-response. |
+| Mate-time attestation | **REAL** | Algorithm-aware verification (Ed25519 + ECDSA P-256); software key custody today, secure-element custody in step 8b. Freshness-bound challenge-response. |
 | Vendor composition signatures | **REAL** | Ed25519 over canonical composition bytes. Demo custody is server-side software signers; in production each vendor custodies its own key. |
 | Forensic ledger | **REAL** | Append-only, hash-chained, with a `verify()` any third party can run. |
 | Policy / clearance engine | **STUBBED (breadth)** | Curated rule set for one task class, not the full optimiser. |
@@ -94,8 +94,9 @@ identically and obey the same deterministic-serialisation rule.
 ## Tech stack
 
 - **Backend:** Python 3.11+, FastAPI, Pydantic v2
-- **Crypto:** `cryptography` (Ed25519 in software; signing step swaps onto an
-  ATECC608 / TPM 2.0 dev board without changing the protocol)
+- **Crypto:** `cryptography` (Ed25519 and ECDSA P-256 in software custody today;
+  P-256 signing swaps onto an ATECC608 dev board in step 8b without changing
+  the byte contract)
 - **Ledger:** in-memory append-only store behind a `Ledger` class; production
   preserves the `verify()` contract
 - **Frontend:** React + Vite, TypeScript, Tailwind CSS

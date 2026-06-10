@@ -101,9 +101,15 @@ A component's status is stated in its own header doc and never silently changes.
                                 spine. Built first. Carries verify(). Held to
                                 production rigour.
 
-  attestation/   [REAL]         Module identity + mate-time challenge-response,
-                                verified against a real secure element. The
-                                other load-bearing claim. Production rigour.
+  attestation/   [REAL]         Module identity + mate-time challenge-response
+                                with algorithm-aware verification (Ed25519 and
+                                ECDSA P-256). Software key custody today;
+                                ATECC608 element custody arrives in step 8b.
+                                Decision: the ATECC608 forces ECDSA P-256, so
+                                the original "only key custody changes" promise
+                                is amended — custody changes AND key_algorithm
+                                is a recorded field of the enrolled identity.
+                                Production rigour.
 
   policy/        [STUB breadth]  Clearance engine. Curated rule set for ONE task
                                 class, not the full configuration-space

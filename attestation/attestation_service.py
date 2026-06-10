@@ -88,6 +88,7 @@ class AttestationService:
         identity = ModuleIdentity(
             module_id=module_id,
             public_key_hex=signer.public_key_hex(),
+            key_algorithm=signer.key_algorithm,
         )
         self._ledger.append(
             EntryKind.MODULE_ENROLLED,
@@ -95,6 +96,7 @@ class AttestationService:
             {
                 "module_id": identity.module_id,
                 "public_key_hex": identity.public_key_hex,
+                "key_algorithm": identity.key_algorithm.value,
             },
         )
         self._registry[module_id] = identity
@@ -134,6 +136,7 @@ class AttestationService:
             challenge,
             signature,
             identity.public_key_hex,
+            key_algorithm=identity.key_algorithm,
             now=verified_at,
         )
         self._append_attestation(result)

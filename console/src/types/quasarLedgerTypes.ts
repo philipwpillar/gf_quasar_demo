@@ -106,9 +106,12 @@ export interface AttestationResult {
   verified_at: string;
 }
 
+export type KeyAlgorithm = "ed25519" | "ecdsa_p256";
+
 export interface EnrolResponse {
   module_id: string;
   public_key_hex: string;
+  key_algorithm: KeyAlgorithm;
 }
 
 export interface VendorEnrolResponse {
@@ -126,6 +129,7 @@ export interface RevokeModuleResponse {
 export interface EnrolledModule {
   module_id: string;
   public_key_hex: string;
+  key_algorithm?: KeyAlgorithm;
   isRealSecureElement: boolean;
   isSynthetic: boolean;
   revoked?: boolean;

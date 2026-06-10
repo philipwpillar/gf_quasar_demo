@@ -10,7 +10,9 @@ import pytest
 
 from attestation import (
     AttestationReason,
+    KeyAlgorithm,
     SoftwareEd25519Signer,
+    SoftwareP256Signer,
     issue_challenge,
     verify_response,
 )
@@ -173,3 +175,154 @@ def test_naive_now_raises() -> None:
 
     with pytest.raises(ValueError, match="timezone-aware"):
         verify_response(challenge, signature, signer.public_key_hex(), now=naive_now)
+
+
+def test_p256_signer_byte_contract() -> None:
+    """Hardware contract: raw 64-byte R||S and 130-char SEC1 public key."""
+    signer = SoftwareP256Signer()
+    nonce = bytes.fromhex(issue_challenge("mod-p256").nonce_hex)
+    signature = signer.sign(nonce)
+
+    assert len(signature) == 64
+    public_key_hex = signer.public_key_hex()
+    assert len(public_key_hex) == 130
+    assert public_key_hex.startswith("04")
+
+
+def test_p256_happy_path_verifies() -> None:
+    signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-p256")
+    signature = signer.sign(bytes.fromhex(challenge.nonce_hex))
+
+    result = verify_response(
+        challenge,
+        signature,
+        signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+    )
+
+    assert result.verified is True
+    assert result.reason == AttestationReason.OK
+
+
+def test_p256_tampered_signature_returns_signature_invalid() -> None:
+    signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-p256")
+    signature = bytearray(signer.sign(bytes.fromhex(challenge.nonce_hex)))
+    signature[0] ^= 0xFF
+
+    result = verify_response(
+        challenge,
+        bytes(signature),
+        signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_p256_expired_challenge_returns_challenge_expired() -> None:
+    signer = SoftwareP256Signer()
+    issued_at = datetime(2026, 6, 7, 12, 0, 0, tzinfo=timezone.utc)
+    challenge = issue_challenge("mod-p256").model_copy(update={"issued_at": issued_at})
+    signature = signer.sign(bytes.fromhex(challenge.nonce_hex))
+    now = issued_at + timedelta(seconds=6)
+
+    result = verify_response(
+        challenge,
+        signature,
+        signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+        now=now,
+        ttl_seconds=5,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.CHALLENGE_EXPIRED
+
+
+def test_cross_algorithm_ed25519_enrolled_with_p256_signature_fails() -> None:
+    ed25519_signer = SoftwareEd25519Signer()
+    p256_signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-alpha")
+    p256_signature = p256_signer.sign(bytes.fromhex(challenge.nonce_hex))
+
+    result = verify_response(
+        challenge,
+        p256_signature,
+        ed25519_signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ED25519,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_cross_algorithm_p256_enrolled_with_ed25519_signature_fails() -> None:
+    ed25519_signer = SoftwareEd25519Signer()
+    p256_signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-alpha")
+    ed25519_signature = ed25519_signer.sign(bytes.fromhex(challenge.nonce_hex))
+
+    result = verify_response(
+        challenge,
+        ed25519_signature,
+        p256_signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_ed25519_malformed_public_key_hex_returns_signature_invalid() -> None:
+    signer = SoftwareEd25519Signer()
+    challenge = issue_challenge("mod-alpha")
+    signature = signer.sign(bytes.fromhex(challenge.nonce_hex))
+
+    result = verify_response(challenge, signature, "not-valid-hex")
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_ed25519_wrong_length_signature_returns_signature_invalid() -> None:
+    signer = SoftwareEd25519Signer()
+    challenge = issue_challenge("mod-alpha")
+
+    result = verify_response(challenge, b"\x00" * 16, signer.public_key_hex())
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_p256_malformed_public_key_hex_returns_signature_invalid() -> None:
+    signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-p256")
+    signature = signer.sign(bytes.fromhex(challenge.nonce_hex))
+
+    result = verify_response(
+        challenge,
+        signature,
+        "deadbeef",
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID
+
+
+def test_p256_wrong_length_signature_returns_signature_invalid() -> None:
+    signer = SoftwareP256Signer()
+    challenge = issue_challenge("mod-p256")
+
+    result = verify_response(
+        challenge,
+        b"\x00" * 32,
+        signer.public_key_hex(),
+        key_algorithm=KeyAlgorithm.ECDSA_P256,
+    )
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.SIGNATURE_INVALID

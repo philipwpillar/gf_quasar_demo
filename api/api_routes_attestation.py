@@ -7,16 +7,30 @@ import os
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
-from attestation import AttestationService, ModuleIdentity, SoftwareEd25519Signer
+from attestation import (
+    AttestationService,
+    KeyAlgorithm,
+    ModuleIdentity,
+    SoftwareEd25519Signer,
+    SoftwareP256Signer,
+)
 from attestation.attestation_models import AttestationResult
+from attestation.attestation_signer import Signer
 
 router = APIRouter(tags=["attestation"])
+
+
+def _module_signer_for_algorithm(key_algorithm: KeyAlgorithm) -> Signer:
+    if key_algorithm == KeyAlgorithm.ECDSA_P256:
+        return SoftwareP256Signer()
+    return SoftwareEd25519Signer()
 
 
 class EnrolRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     module_id: str
+    key_algorithm: KeyAlgorithm = KeyAlgorithm.ED25519
 
 
 class EnrolResponse(BaseModel):
@@ -24,6 +38,7 @@ class EnrolResponse(BaseModel):
 
     module_id: str
     public_key_hex: str
+    key_algorithm: KeyAlgorithm
 
 
 class AttestRequest(BaseModel):
@@ -38,13 +53,14 @@ def enrol_module(request_body: EnrolRequest, request: Request) -> EnrolResponse:
     attestation: AttestationService = request.app.state.attestation
     module_signers: dict = request.app.state.module_signers
 
-    signer = request.app.state.new_module_signer()
+    signer = _module_signer_for_algorithm(request_body.key_algorithm)
     identity: ModuleIdentity = attestation.enrol(request_body.module_id, signer)
     module_signers[identity.module_id] = signer
 
     return EnrolResponse(
         module_id=identity.module_id,
         public_key_hex=identity.public_key_hex,
+        key_algorithm=identity.key_algorithm,
     )
 
 
