@@ -14,7 +14,13 @@ from attestation import (
 from corpus import CorpusError, DanglingTelemetryError
 from ledger import ChainBrokenError, LedgerError
 from policy import ClearanceError, MissingModuleSignerError
-from quasar_site import RobotCompositionNotFoundError, RobotIdMismatchError, SiteError
+from quasar_site import (
+    DuplicateVendorError,
+    RobotCompositionNotFoundError,
+    RobotIdMismatchError,
+    SiteError,
+    UnknownVendorError,
+)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -110,6 +116,32 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=400,
             content={"error": "corpus_error", "message": str(exc)},
+        )
+
+    @app.exception_handler(DuplicateVendorError)
+    async def duplicate_vendor_handler(
+        _request: Request, exc: DuplicateVendorError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "duplicate_vendor",
+                "message": str(exc),
+                "vendor_id": exc.vendor_id,
+            },
+        )
+
+    @app.exception_handler(UnknownVendorError)
+    async def unknown_vendor_handler(
+        _request: Request, exc: UnknownVendorError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "unknown_vendor",
+                "message": str(exc),
+                "vendor_id": exc.vendor_id,
+            },
         )
 
     @app.exception_handler(RobotCompositionNotFoundError)

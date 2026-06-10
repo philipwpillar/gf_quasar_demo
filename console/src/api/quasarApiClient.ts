@@ -12,6 +12,7 @@ import type {
   RobotComposition,
   SiteAdmissionRequest,
   SiteAdmissionVerdict,
+  VendorEnrolResponse,
 } from "../types/quasarLedgerTypes";
 
 const API_BASE =
@@ -81,6 +82,22 @@ export async function corruptModuleSigner(
   return requestJson("/dev/corrupt-module-signer", {
     method: "POST",
     body: JSON.stringify({ module_id: moduleId }),
+  });
+}
+
+export async function enrolVendor(vendorId: string): Promise<VendorEnrolResponse> {
+  return requestJson("/vendors/enrol", {
+    method: "POST",
+    body: JSON.stringify({ vendor_id: vendorId }),
+  });
+}
+
+export async function corruptVendorSigner(
+  vendorId: string,
+): Promise<{ vendor_id: string; message: string }> {
+  return requestJson("/dev/corrupt-vendor-signer", {
+    method: "POST",
+    body: JSON.stringify({ vendor_id: vendorId }),
   });
 }
 

@@ -2,6 +2,7 @@
 
 export type EntryKind =
   | "module_enrolled"
+  | "vendor_enrolled"
   | "attestation"
   | "robot_composed"
   | "site_admission"
@@ -53,7 +54,9 @@ export interface ClearanceVerdict {
 
 export interface RobotComposition {
   robot_id: string;
-  vendor_key_id: string;
+  vendor_id: string;
+  vendor_signature_hex: string;
+  vendor_public_key_hex: string;
   module_refs: ModuleAttestationRef[];
   composed: boolean;
   reasons: string[];
@@ -63,7 +66,7 @@ export interface RobotComposition {
 
 export interface ComposeRobotRequest {
   robot_id: string;
-  vendor_key_id: string;
+  vendor_id: string;
   module_ids: string[];
 }
 
@@ -108,6 +111,12 @@ export interface EnrolResponse {
   public_key_hex: string;
 }
 
+export interface VendorEnrolResponse {
+  vendor_id: string;
+  public_key_hex: string;
+  ledger_seq: number;
+}
+
 export interface RevokeModuleResponse {
   module_id: string;
   ledger_seq: number;
@@ -125,7 +134,7 @@ export interface EnrolledModule {
 
 export interface FleetRobot {
   robot_id: string;
-  vendor_key_id: string;
+  vendor_id: string;
   module_ids: string[];
   composition?: RobotComposition;
   admission?: SiteAdmissionVerdict;

@@ -46,6 +46,7 @@ labelled on screen.
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Mate-time attestation | **REAL** | Ed25519 / secure-element signatures, freshness-bound challenge-response. |
+| Vendor composition signatures | **REAL** | Ed25519 over canonical composition bytes. Demo custody is server-side software signers; in production each vendor custodies its own key. |
 | Forensic ledger | **REAL** | Append-only, hash-chained, with a `verify()` any third party can run. |
 | Policy / clearance engine | **STUBBED (breadth)** | Curated rule set for one task class, not the full optimiser. |
 | Behaviour corpus | **STUBBED (depth)** | Synthetic, provenance-linked telemetry, not a real fleet. |
@@ -75,15 +76,16 @@ structure rules.
 
 ## Ledger entry kinds
 
-The ledger carries all seven entry kinds from line one, so the three-tier
+The ledger carries all eight entry kinds from line one, so the three-tier
 hierarchy lives in the spine rather than being bolted on later. All chain
 identically and obey the same deterministic-serialisation rule.
 
 | Entry kind | Records |
 |------------|---------|
 | `module_enrolled` | A module's identity and public key are registered. |
+| `vendor_enrolled` | A vendor authority identity and public key are registered. |
 | `attestation` | The result of a mate-time challenge-response (Tier 1). |
-| `robot_composed` | A robot identity composed from attested module refs + a vendor key (Tier 2). |
+| `robot_composed` | A vendor-signed robot identity composed from attested module refs (Tier 2). Uses `vendor_id` (registered identity), not a bare key label. |
 | `site_admission` | A robot's admission decision at a site gate — cleared / not-cleared for a task in a zone (Tier 3). A clearance/provenance event, never a dispatch log. |
 | `clearance_decision` | The signed cleared / not-cleared verdict and plain-language reasons. |
 | `telemetry` | A behaviour sample, provenance-linked to its attestation via `attestation_ref`. |
@@ -141,8 +143,8 @@ See `console/README.md` for details.
 Sequenced to de-risk the load-bearing claims first.
 
 1. **Ledger + `verify()`** — provable in isolation, no hardware needed. The spine.
-   Carries all seven entry kinds (incl. `robot_composed`, `site_admission`) from
-   line one.
+   Carries all eight entry kinds (incl. `vendor_enrolled`, `robot_composed`,
+   `site_admission`) from line one.
 2. **Attestation core in software (Ed25519)**, then swap the sign step onto a
    real secure element.
 3. **API gateway + clearance flow** wiring attestation and ledger together.

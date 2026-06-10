@@ -87,6 +87,8 @@ def create_app(*, config_id: str = "cfg-demo") -> FastAPI:
     app.state.narrator = narrator
     app.state.module_signers: dict[str, SoftwareEd25519Signer] = {}
     app.state.new_module_signer = SoftwareEd25519Signer
+    app.state.vendor_signers: dict[str, SoftwareEd25519Signer] = {}
+    app.state.new_vendor_signer = SoftwareEd25519Signer
 
     register_exception_handlers(app)
 

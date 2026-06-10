@@ -11,6 +11,7 @@ from policy.policy_models import POLICY_MODE_STUB
 from policy.policy_rules import SUPPORTED_TASK_CLASS, evaluate_policy
 from shared.canonical_hashing import canonical_bytes
 
+from .site_composition import verify_composition
 from .site_models import RobotComposition, SiteAdmissionRequest, SiteAdmissionVerdict
 
 
@@ -64,17 +65,43 @@ def admit(
     authority_signer: Signer,
     request: SiteAdmissionRequest,
     robot_composition: RobotComposition,
+    *,
+    enrolled_vendor_public_key_hex: str | None,
 ) -> SiteAdmissionVerdict:
     """Decide site admission and append ``site_admission`` to the ledger.
 
     Tier 3 attests and clears only — this is a provenance/compliance gate,
     not task scheduling or site orchestration.
+
+    The enrolled vendor public key is the trust anchor; the embedded
+    ``vendor_public_key_hex`` on the composition is offline convenience and
+    must match it before the vendor signature is checked.
     """
     reasons: list[str] = []
+    admitted = False
 
-    if not robot_composition.composed:
+    if enrolled_vendor_public_key_hex is None:
+        reasons.append(
+            f"robot {request.robot_id} not trusted: unknown vendor "
+            f"{robot_composition.vendor_id}"
+        )
+    elif (
+        robot_composition.vendor_public_key_hex
+        != enrolled_vendor_public_key_hex
+    ):
+        reasons.append(
+            f"robot {request.robot_id} not trusted: vendor public key mismatch "
+            f"for {robot_composition.vendor_id}"
+        )
+    elif not verify_composition(
+        robot_composition, enrolled_vendor_public_key_hex
+    ):
+        reasons.append(
+            f"robot {request.robot_id} not trusted: vendor signature invalid "
+            f"for {robot_composition.vendor_id}"
+        )
+    elif not robot_composition.composed:
         reasons.extend(robot_composition.reasons)
-        admitted = False
     else:
         rules_passed, rule_reasons = evaluate_policy(
             task_class=request.task_class,
@@ -83,7 +110,6 @@ def admit(
         )
         if not rules_passed:
             reasons.extend(rule_reasons)
-            admitted = False
         else:
             reasons.append(
                 f"admitted for {SUPPORTED_TASK_CLASS} in {request.zone}"

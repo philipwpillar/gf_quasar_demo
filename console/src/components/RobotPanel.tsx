@@ -6,6 +6,9 @@ interface RobotPanelProps {
   highlightFailure?: boolean;
 }
 
+const VENDOR_TRUST_REASON =
+  /vendor signature invalid|unknown vendor|vendor public key mismatch/i;
+
 function statusPill(ok: boolean | undefined, okLabel: string, failLabel: string) {
   if (ok === undefined) {
     return (
@@ -31,6 +34,13 @@ function statusPill(ok: boolean | undefined, okLabel: string, failLabel: string)
   );
 }
 
+function hasVendorTrustFailure(robot: FleetRobot): boolean {
+  return (
+    robot.admission?.reasons.some((reason) => VENDOR_TRUST_REASON.test(reason)) ??
+    false
+  );
+}
+
 export default function RobotPanel({
   robot,
   modules,
@@ -40,14 +50,21 @@ export default function RobotPanel({
   const failedModuleIds =
     composition?.module_refs.filter((ref) => !ref.attested).map((ref) => ref.module_id) ??
     [];
+  const vendorTrustFailed = hasVendorTrustFailure(robot);
+  const moduleTrustFailed = Boolean(composition && !composition.composed);
+  const showFailureHighlight =
+    highlightFailure && (moduleTrustFailed || vendorTrustFailed);
 
   return (
     <article
       className={`rounded-lg border p-4 ${
-        highlightFailure && composition && !composition.composed
-          ? "border-trust-fail-border bg-trust-fail-bg"
+        showFailureHighlight
+          ? vendorTrustFailed
+            ? "border-purple-400 bg-purple-50"
+            : "border-trust-fail-border bg-trust-fail-bg"
           : "border-line bg-surface-card"
       }`}
+      data-testid={`robot-panel-${robot.robot_id}`}
     >
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -58,8 +75,10 @@ export default function RobotPanel({
                 Synthetic robot
               </span>
             )}
+            <span className="rounded-md border border-accent/30 bg-accent-subtle px-2 py-0.5 text-xs font-semibold text-accent">
+              Vendor: {robot.vendor_id}
+            </span>
           </div>
-          <p className="text-xs text-ink-muted">vendor: {robot.vendor_key_id}</p>
         </div>
         {statusPill(
           composition?.composed,
@@ -114,10 +133,31 @@ export default function RobotPanel({
           <p className="font-mono text-xs text-ink-muted">
             ledger seq {composition.ledger_seq} · chain head {composition.chain_head.slice(0, 16)}…
           </p>
+          <p className="font-mono text-xs text-ink-faint break-all">
+            vendor signature {composition.vendor_signature_hex.slice(0, 24)}…
+          </p>
         </div>
       )}
 
-      {failedModuleIds.length > 0 && (
+      {vendorTrustFailed && (
+        <p
+          className="mt-4 flex items-start gap-2 rounded-md border border-purple-400 bg-white px-3 py-2 text-sm text-purple-900"
+          data-testid="vendor-trust-failure"
+        >
+          <span aria-hidden="true" className="mt-0.5">
+            ✗
+          </span>
+          <span>
+            Site gate denied: vendor trust failure for{" "}
+            <span className="font-mono font-semibold">{robot.vendor_id}</span> —{" "}
+            {robot.admission?.reasons
+              .filter((r) => VENDOR_TRUST_REASON.test(r))
+              .join(" · ")}
+          </span>
+        </p>
+      )}
+
+      {failedModuleIds.length > 0 && !vendorTrustFailed && (
         <p className="mt-4 flex items-start gap-2 rounded-md border border-trust-fail-border bg-white px-3 py-2 text-sm text-trust-fail-text">
           <span aria-hidden="true" className="mt-0.5">
             ✗

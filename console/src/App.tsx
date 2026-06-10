@@ -6,6 +6,7 @@ import {
   composeRobot,
   corruptModuleSigner,
   enrolModule,
+  enrolVendor,
   healthCheck,
   revokeModule,
 } from "./api/quasarApiClient";
@@ -26,6 +27,9 @@ import type {
 
 const REAL_MODULE_ID = "mod-secure-001";
 const SYNTHETIC_MODULE_IDS = ["mod-synth-002", "mod-synth-003"] as const;
+const VENDOR_ALPHA = "vendor_alpha";
+const VENDOR_BETA = "vendor_beta";
+const DEMO_VENDOR_IDS = [VENDOR_ALPHA, VENDOR_BETA] as const;
 const DEFAULT_GATE: SiteGateConfig = {
   task_class: "industrial_inspection",
   zone: "zone_b",
@@ -89,6 +93,7 @@ export default function App() {
 
   async function handleEnrolRealModule() {
     await withBusy(async () => {
+      await ensureVendorsEnrolled();
       const response = await enrolModule(REAL_MODULE_ID);
       setModules((prev) => {
         if (prev.some((m) => m.module_id === response.module_id)) {
@@ -113,6 +118,7 @@ export default function App() {
 
   async function handleEnrolSyntheticModules() {
     await withBusy(async () => {
+      await ensureVendorsEnrolled();
       for (const moduleId of SYNTHETIC_MODULE_IDS) {
         try {
           const response = await enrolModule(moduleId);
@@ -179,22 +185,27 @@ export default function App() {
     });
   }
 
-  async function handleComposeRobot(robotId: string, isSynthetic: boolean) {
+  async function handleComposeRobot(
+    robotId: string,
+    isSynthetic: boolean,
+    vendorId: string = isSynthetic ? VENDOR_BETA : VENDOR_ALPHA,
+  ) {
     if (selectedModuleIds.length === 0) {
       setError("Select at least one module to compose a robot.");
       return;
     }
     await withBusy(async () => {
+      await ensureVendorsEnrolled();
       const composition = await composeRobot({
         robot_id: robotId,
-        vendor_key_id: isSynthetic ? "vendor-synth-demo" : "vendor-acme",
+        vendor_id: vendorId,
         module_ids: selectedModuleIds,
       });
       setRobots((prev) => {
         const existing = prev.find((r) => r.robot_id === robotId);
         const next: FleetRobot = {
           robot_id: robotId,
-          vendor_key_id: isSynthetic ? "vendor-synth-demo" : "vendor-acme",
+          vendor_id: vendorId,
           module_ids: [...selectedModuleIds],
           composition,
           admission: existing?.admission,
@@ -230,6 +241,19 @@ export default function App() {
     });
   }
 
+  async function ensureVendorsEnrolled(): Promise<void> {
+    for (const vendorId of DEMO_VENDOR_IDS) {
+      try {
+        await enrolVendor(vendorId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (!message.includes("409")) {
+          throw err;
+        }
+      }
+    }
+  }
+
   async function ensureEnrolled(
     moduleId: string,
     isReal: boolean,
@@ -263,6 +287,7 @@ export default function App() {
     setSelectedModuleIds([REAL_MODULE_ID, SYNTHETIC_MODULE_IDS[0]]);
 
     await withBusy(async () => {
+      await ensureVendorsEnrolled();
       await ensureEnrolled(REAL_MODULE_ID, true);
       await ensureEnrolled(SYNTHETIC_MODULE_IDS[0], false);
 
@@ -284,7 +309,7 @@ export default function App() {
 
       const composition = await composeRobot({
         robot_id: PROPAGATION_ROBOT_ID,
-        vendor_key_id: "vendor-synth-demo",
+        vendor_id: VENDOR_BETA,
         module_ids: [REAL_MODULE_ID, SYNTHETIC_MODULE_IDS[0]],
       });
 
@@ -299,7 +324,7 @@ export default function App() {
         ...prev.filter((r) => r.robot_id !== PROPAGATION_ROBOT_ID),
         {
           robot_id: PROPAGATION_ROBOT_ID,
-          vendor_key_id: "vendor-synth-demo",
+          vendor_id: VENDOR_BETA,
           module_ids: [REAL_MODULE_ID, SYNTHETIC_MODULE_IDS[0]],
           composition,
           admission,
@@ -334,10 +359,11 @@ export default function App() {
     setPropagationRobotId(null);
     setSelectedModuleIds([REAL_MODULE_ID]);
     await withBusy(async () => {
+      await ensureVendorsEnrolled();
       await ensureEnrolled(REAL_MODULE_ID, true);
       const composition = await composeRobot({
         robot_id: TRUSTED_ROBOT_ID,
-        vendor_key_id: "vendor-acme",
+        vendor_id: VENDOR_ALPHA,
         module_ids: [REAL_MODULE_ID],
       });
       const admission = await admitRobot({
@@ -350,14 +376,38 @@ export default function App() {
         ...prev.filter((r) => r.robot_id !== TRUSTED_ROBOT_ID),
         {
           robot_id: TRUSTED_ROBOT_ID,
-          vendor_key_id: "vendor-acme",
+          vendor_id: VENDOR_ALPHA,
           module_ids: [REAL_MODULE_ID],
           composition,
           admission,
           isSynthetic: false,
         },
       ]);
-      setStatusMessage("Trusted path complete — real module composed and admitted");
+      const betaComposition = await composeRobot({
+        robot_id: "robot-beta-fleet",
+        vendor_id: VENDOR_BETA,
+        module_ids: [REAL_MODULE_ID],
+      });
+      const betaAdmission = await admitRobot({
+        robot_id: "robot-beta-fleet",
+        task_class: DEFAULT_GATE.task_class,
+        zone: DEFAULT_GATE.zone,
+        robot_composed_seq: betaComposition.ledger_seq,
+      });
+      setRobots((prev) => [
+        ...prev.filter((r) => r.robot_id !== "robot-beta-fleet"),
+        {
+          robot_id: "robot-beta-fleet",
+          vendor_id: VENDOR_BETA,
+          module_ids: [REAL_MODULE_ID],
+          composition: betaComposition,
+          admission: betaAdmission,
+          isSynthetic: true,
+        },
+      ]);
+      setStatusMessage(
+        "Trusted path complete — multi-vendor fleet (vendor_alpha + vendor_beta) on site",
+      );
     });
   }
 

@@ -7,13 +7,24 @@ from pydantic import BaseModel, ConfigDict, Field
 from policy.policy_models import POLICY_MODE_STUB, ModuleAttestationRef
 
 
+class VendorIdentity(BaseModel):
+    """Enrolled vendor authority — registered identity with Ed25519 public key."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vendor_id: str
+    public_key_hex: str
+
+
 class RobotComposition(BaseModel):
     """Tier 2 trust verdict: a robot identity composed from attested module refs."""
 
     model_config = ConfigDict(extra="forbid")
 
     robot_id: str
-    vendor_key_id: str
+    vendor_id: str
+    vendor_signature_hex: str
+    vendor_public_key_hex: str
     module_refs: list[ModuleAttestationRef]
     composed: bool
     reasons: list[str]
@@ -27,7 +38,7 @@ class ComposeRobotRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     robot_id: str
-    vendor_key_id: str
+    vendor_id: str
     module_ids: list[str]
 
 

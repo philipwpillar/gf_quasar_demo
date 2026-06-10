@@ -151,6 +151,7 @@ def test_verify_or_raise_raises_chain_broken_error() -> None:
 def test_all_entry_kinds_are_defined() -> None:
     expected = {
         "module_enrolled",
+        "vendor_enrolled",
         "attestation",
         "robot_composed",
         "site_admission",

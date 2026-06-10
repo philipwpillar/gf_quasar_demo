@@ -109,16 +109,20 @@ A component's status is stated in its own header doc and never silently changes.
                                 class, not the full configuration-space
                                 optimiser. Labelled stubbed in code and on screen.
 
-  site/          [REAL gate /   Tier 2 robot composition + Tier 3 site admission.
-                 STUB breadth]  One primitive (challenge-response) applied at the
-                                robot and site boundaries. The composition/
-                                admission GATE and ledger writes are REAL; the
-                                site policy BREADTH reuses policy/'s stubbed
-                                single-task rules. Has its own site-authority
-                                signing key. Tier 3 attests and clears; it NEVER
-                                orchestrates or dispatches. IMPORT-NAME EXCEPTION:
-                                see Section 3 — on-disk folder is site/, runtime
-                                import name is quasar_site.
+  site/          [REAL gate /   Tier 2 vendor-signed robot composition + Tier 3
+                 STUB breadth]  site admission. Vendor authorities are enrolled
+                                identities with Ed25519 keys that sign robot
+                                compositions (demo custody: server-side software
+                                signers; production: vendor-side custody). One
+                                primitive (challenge-response) applied at module
+                                and site boundaries. The composition/admission
+                                GATE and ledger writes are REAL; site policy
+                                BREADTH reuses policy/'s stubbed single-task
+                                rules. Has its own site-authority signing key.
+                                Tier 3 attests and clears; it NEVER orchestrates
+                                or dispatches. IMPORT-NAME EXCEPTION: see Section
+                                3 — on-disk folder is site/, runtime import name
+                                is quasar_site.
 
   corpus/        [STUB depth]   Telemetry sink + synthetic seed generator.
                                 Schema is full-fidelity from day one; the DATA
@@ -292,7 +296,7 @@ real secure element, never full root-of-trust").
   gf_quasar_demo/
     ledger/
       __init__.py                 published surface: LedgerService, LedgerEntry, EntryKind, verify
-      ledger_models.py            LedgerEntry, EntryKind enum (all 7 kinds, line one)
+      ledger_models.py            LedgerEntry, EntryKind enum (all 8 kinds, line one)
       ledger_chain.py             hash-chain mechanics, append, verify()
       ledger_service.py           callable orchestration surface
       ledger_errors.py            ChainBrokenError, etc.
@@ -311,10 +315,10 @@ real secure element, never full root-of-trust").
       policy_errors.py
     site/                         (on disk: site/  |  import as: quasar_site — Sec 3)
       __init__.py
-      site_models.py              RobotComposition, SiteAdmissionRequest/Verdict
-      site_composition.py         Tier 2: compose_robot, writes robot_composed
+      site_models.py              RobotComposition, VendorIdentity, SiteAdmissionRequest/Verdict
+      site_composition.py         Tier 2: vendor-signed compose_robot, verify_composition
       site_admission.py           Tier 3: admit, signs + writes site_admission; verify_site_verdict
-      site_service.py             orchestrates Tier 1 -> 2 -> 3 over attestation + ledger
+      site_service.py             vendor registry + orchestrates Tier 1 -> 2 -> 3
       site_errors.py
     corpus/
       __init__.py
@@ -330,7 +334,7 @@ real secure element, never full root-of-trust").
       api_main.py                 FastAPI app + gateway wiring
       api_routes_attestation.py   /modules/enrol, /attest
       api_routes_clearance.py     /clearance
-      api_routes_site.py          /robots/compose, /site/admit
+      api_routes_site.py          /vendors/enrol, /robots/compose, /site/admit
       api_routes_ledger.py        /ledger/verify, /ledger/export
       api_routes_corpus.py        /telemetry
       api_routes_narrator.py      /assistant/query

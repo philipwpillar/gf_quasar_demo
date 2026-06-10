@@ -14,9 +14,10 @@ GENESIS_PREV_HASH = "0" * 64
 
 
 class EntryKind(str, Enum):
-    """All seven entry kinds carried by the ledger spine from line one."""
+    """All eight entry kinds carried by the ledger spine from line one."""
 
     MODULE_ENROLLED = "module_enrolled"
+    VENDOR_ENROLLED = "vendor_enrolled"
     ATTESTATION = "attestation"
     ROBOT_COMPOSED = "robot_composed"
     SITE_ADMISSION = "site_admission"

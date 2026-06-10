@@ -5,6 +5,26 @@ class SiteError(Exception):
     """Base class for site composition and admission failures."""
 
 
+class DuplicateVendorError(SiteError):
+    """Raised when a vendor_id is enrolled more than once."""
+
+    def __init__(self, vendor_id: str, message: str | None = None) -> None:
+        self.vendor_id = vendor_id
+        super().__init__(
+            message or f"Vendor {vendor_id!r} is already enrolled"
+        )
+
+
+class UnknownVendorError(SiteError):
+    """Raised when compose or admission references an unregistered vendor."""
+
+    def __init__(self, vendor_id: str, message: str | None = None) -> None:
+        self.vendor_id = vendor_id
+        super().__init__(
+            message or f"Unknown vendor {vendor_id!r} — enrol before composing"
+        )
+
+
 class RobotCompositionNotFoundError(SiteError):
     """Raised when a robot_composed ledger entry cannot be resolved."""
 

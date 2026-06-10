@@ -8,12 +8,14 @@ import PropagationChainCard from "./PropagationChainCard";
 
 const propagationRobot: FleetRobot = {
   robot_id: "robot-propagation-demo",
-  vendor_key_id: "vendor-synth-demo",
+  vendor_id: "vendor_beta",
   module_ids: ["mod-secure-001", "mod-synth-002"],
   isSynthetic: true,
   composition: {
     robot_id: "robot-propagation-demo",
-    vendor_key_id: "vendor-synth-demo",
+    vendor_id: "vendor_beta",
+    vendor_signature_hex: "aa".repeat(64),
+    vendor_public_key_hex: "bb".repeat(32),
     composed: false,
     reasons: [
       "robot robot-propagation-demo not trusted: module mod-synth-002 failed attestation (ledger seq 4)",

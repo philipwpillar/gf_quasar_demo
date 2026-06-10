@@ -11,9 +11,17 @@ from fastapi.testclient import TestClient
 
 from api.api_main import create_app
 from attestation import SoftwareEd25519Signer
-from ledger import EntryKind
+from ledger import EntryKind, Ledger
 from policy import POLICY_MODE_STUB
-from quasar_site import RobotComposition, SiteAdmissionVerdict, verify_site_verdict
+from quasar_site import (
+    DuplicateVendorError,
+    RobotComposition,
+    SiteAdmissionVerdict,
+    SiteService,
+    UnknownVendorError,
+    verify_composition,
+    verify_site_verdict,
+)
 
 
 SITE_PATH_MODULES = (
@@ -32,20 +40,26 @@ def client() -> TestClient:
     return TestClient(create_app())
 
 
-def _enrol(client: TestClient, module_id: str) -> None:
+def _enrol_module(client: TestClient, module_id: str) -> None:
     response = client.post("/modules/enrol", json={"module_id": module_id})
     assert response.status_code == 200
+
+
+def _enrol_vendor(client: TestClient, vendor_id: str) -> dict:
+    response = client.post("/vendors/enrol", json={"vendor_id": vendor_id})
+    assert response.status_code == 200
+    return response.json()
 
 
 def _compose_payload(
     *,
     robot_id: str = "robot-001",
-    vendor_key_id: str = "vendor-acme",
+    vendor_id: str = "vendor_alpha",
     module_ids: list[str] | None = None,
 ) -> dict:
     return {
         "robot_id": robot_id,
-        "vendor_key_id": vendor_key_id,
+        "vendor_id": vendor_id,
         "module_ids": module_ids or ["mod-001", "mod-002"],
     }
 
@@ -65,23 +79,65 @@ def _admit_payload(
     }
 
 
+def test_vendor_enrol_writes_ledger_entry(client: TestClient) -> None:
+    response = client.post("/vendors/enrol", json={"vendor_id": "vendor_alpha"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["vendor_id"] == "vendor_alpha"
+    assert len(body["public_key_hex"]) == 64
+
+    ledger = client.app.state.ledger
+    entry = ledger.get(body["ledger_seq"])
+    assert entry.kind == EntryKind.VENDOR_ENROLLED
+    assert entry.payload["vendor_id"] == "vendor_alpha"
+    assert ledger.verify() == (True, None)
+
+
+def test_vendor_enrol_duplicate_raises(client: TestClient) -> None:
+    _enrol_vendor(client, "vendor_alpha")
+    response = client.post("/vendors/enrol", json={"vendor_id": "vendor_alpha"})
+    assert response.status_code == 409
+
+
+def test_vendor_enrol_duplicate_raises_in_service() -> None:
+    from attestation import AttestationService
+    from ledger import Ledger
+
+    ledger = Ledger()
+    attestation = AttestationService(ledger, config_id="cfg-test")
+    site = SiteService(ledger, attestation, SoftwareEd25519Signer())
+    signer = SoftwareEd25519Signer()
+    site.enrol_vendor("vendor_alpha", signer)
+    with pytest.raises(DuplicateVendorError):
+        site.enrol_vendor("vendor_alpha", SoftwareEd25519Signer())
+
+
 def test_compose_robot_all_modules_attested(client: TestClient) -> None:
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     response = client.post("/robots/compose", json=_compose_payload())
     assert response.status_code == 200
 
     composition = RobotComposition.model_validate(response.json())
     assert composition.composed is True
+    assert composition.vendor_id == "vendor_alpha"
+    assert composition.vendor_signature_hex
+    assert composition.vendor_public_key_hex
     assert composition.reasons
     assert len(composition.module_refs) == 2
     assert all(ref.attested for ref in composition.module_refs)
+
+    vendor = client.app.state.site.get_enrolled_vendor("vendor_alpha")
+    assert vendor is not None
+    assert verify_composition(composition, vendor.public_key_hex) is True
 
     ledger = client.app.state.ledger
     entry = ledger.get(composition.ledger_seq)
     assert entry.kind == EntryKind.ROBOT_COMPOSED
     assert entry.payload["composed"] is True
+    assert entry.payload["vendor_id"] == "vendor_alpha"
 
     for ref in composition.module_refs:
         attestation_entry = ledger.get(ref.ledger_seq)
@@ -93,8 +149,9 @@ def test_compose_robot_all_modules_attested(client: TestClient) -> None:
 
 
 def test_compose_robot_one_failed_module(client: TestClient) -> None:
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     client.app.state.module_signers["mod-002"] = SoftwareEd25519Signer()
 
@@ -104,6 +161,10 @@ def test_compose_robot_one_failed_module(client: TestClient) -> None:
     composition = RobotComposition.model_validate(response.json())
     assert composition.composed is False
     assert any("mod-002" in reason for reason in composition.reasons)
+
+    vendor = client.app.state.site.get_enrolled_vendor("vendor_alpha")
+    assert vendor is not None
+    assert verify_composition(composition, vendor.public_key_hex) is True
 
     ledger = client.app.state.ledger
     entry = ledger.get(composition.ledger_seq)
@@ -118,9 +179,61 @@ def test_compose_robot_one_failed_module(client: TestClient) -> None:
     assert ledger.verify() == (True, None)
 
 
+def test_verify_composition_fails_when_signed_field_tampered(
+    client: TestClient,
+) -> None:
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+
+    response = client.post(
+        "/robots/compose",
+        json=_compose_payload(module_ids=["mod-001"]),
+    )
+    composition = RobotComposition.model_validate(response.json())
+    vendor = client.app.state.site.get_enrolled_vendor("vendor_alpha")
+    assert vendor is not None
+    assert verify_composition(composition, vendor.public_key_hex) is True
+
+    tampered = composition.model_copy(update={"robot_id": "robot-TAMPERED"})
+    assert verify_composition(tampered, vendor.public_key_hex) is False
+
+    tampered_vendor = composition.model_copy(update={"vendor_id": "vendor_beta"})
+    assert verify_composition(tampered_vendor, vendor.public_key_hex) is False
+
+
+def test_compose_unknown_vendor_returns_404(client: TestClient) -> None:
+    _enrol_module(client, "mod-001")
+    response = client.post(
+        "/robots/compose",
+        json=_compose_payload(module_ids=["mod-001"]),
+    )
+    assert response.status_code == 404
+
+
+def test_compose_unknown_vendor_raises_in_service() -> None:
+    from attestation import AttestationService
+    from ledger import Ledger
+    from quasar_site import ComposeRobotRequest
+
+    ledger = Ledger()
+    attestation = AttestationService(ledger, config_id="cfg-test")
+    site = SiteService(ledger, attestation, SoftwareEd25519Signer())
+    with pytest.raises(UnknownVendorError):
+        site.compose_robot(
+            ComposeRobotRequest(
+                robot_id="r1",
+                vendor_id="missing",
+                module_ids=["mod-001"],
+            ),
+            {},
+            {},
+        )
+
+
 def test_admit_trusted_robot(client: TestClient) -> None:
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     compose_response = client.post("/robots/compose", json=_compose_payload())
     composition = RobotComposition.model_validate(compose_response.json())
@@ -146,9 +259,111 @@ def test_admit_trusted_robot(client: TestClient) -> None:
     assert ledger.verify() == (True, None)
 
 
+def test_two_vendors_both_admitted_under_one_site_gate(client: TestClient) -> None:
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_vendor(client, "vendor_beta")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
+
+    compose_alpha = client.post(
+        "/robots/compose",
+        json=_compose_payload(robot_id="robot-alpha", vendor_id="vendor_alpha"),
+    )
+    compose_beta = client.post(
+        "/robots/compose",
+        json=_compose_payload(robot_id="robot-beta", vendor_id="vendor_beta"),
+    )
+    comp_alpha = RobotComposition.model_validate(compose_alpha.json())
+    comp_beta = RobotComposition.model_validate(compose_beta.json())
+
+    admit_alpha = client.post(
+        "/site/admit",
+        json=_admit_payload(
+            robot_id="robot-alpha",
+            robot_composed_seq=comp_alpha.ledger_seq,
+        ),
+    )
+    admit_beta = client.post(
+        "/site/admit",
+        json=_admit_payload(
+            robot_id="robot-beta",
+            robot_composed_seq=comp_beta.ledger_seq,
+        ),
+    )
+    verdict_alpha = SiteAdmissionVerdict.model_validate(admit_alpha.json())
+    verdict_beta = SiteAdmissionVerdict.model_validate(admit_beta.json())
+    assert verdict_alpha.admitted is True
+    assert verdict_beta.admitted is True
+
+    ledger = client.app.state.ledger
+    assert ledger.verify() == (True, None)
+    exported = ledger.export()
+    assert Ledger.verify_export(exported) == (True, None)
+    kinds = {EntryKind(raw["kind"]) for raw in exported}
+    assert EntryKind.VENDOR_ENROLLED in kinds
+
+
+def test_forged_vendor_identity_denied_at_site_gate(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("QUASAR_ENABLE_DEV_HOOKS", "1")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
+
+    compose_ok = client.post("/robots/compose", json=_compose_payload())
+    composition_ok = RobotComposition.model_validate(compose_ok.json())
+    assert composition_ok.composed is True
+
+    admit_ok = client.post(
+        "/site/admit",
+        json=_admit_payload(robot_composed_seq=composition_ok.ledger_seq),
+    )
+    verdict_ok = SiteAdmissionVerdict.model_validate(admit_ok.json())
+    assert verdict_ok.admitted is True
+
+    corrupt = client.post(
+        "/dev/corrupt-vendor-signer",
+        json={"vendor_id": "vendor_alpha"},
+    )
+    assert corrupt.status_code == 200
+
+    compose_forged = client.post("/robots/compose", json=_compose_payload())
+    composition_forged = RobotComposition.model_validate(compose_forged.json())
+    assert composition_forged.composed is True
+
+    admit_forged = client.post(
+        "/site/admit",
+        json=_admit_payload(robot_composed_seq=composition_forged.ledger_seq),
+    )
+    verdict_forged = SiteAdmissionVerdict.model_validate(admit_forged.json())
+    assert verdict_forged.admitted is False
+    assert any(
+        "vendor signature invalid" in reason or "vendor public key mismatch" in reason
+        for reason in verdict_forged.reasons
+    )
+    assert verify_site_verdict(verdict_forged) is True
+
+    ledger = client.app.state.ledger
+    assert ledger.verify() == (True, None)
+
+
+def test_corrupt_vendor_signer_404_when_dev_hooks_disabled(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("QUASAR_ENABLE_DEV_HOOKS", raising=False)
+    _enrol_vendor(client, "vendor_alpha")
+    response = client.post(
+        "/dev/corrupt-vendor-signer",
+        json={"vendor_id": "vendor_alpha"},
+    )
+    assert response.status_code == 404
+
+
 def test_admit_untrusted_robot_traces_failing_module(client: TestClient) -> None:
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     client.app.state.module_signers["mod-002"] = SoftwareEd25519Signer()
 
@@ -174,7 +389,8 @@ def test_admit_untrusted_robot_traces_failing_module(client: TestClient) -> None
 
 
 def test_admit_refuses_unsupported_task_or_zone(client: TestClient) -> None:
-    _enrol(client, "mod-001")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
 
     compose_response = client.post(
         "/robots/compose",
@@ -207,8 +423,9 @@ def test_admit_refuses_unsupported_task_or_zone(client: TestClient) -> None:
 
 def test_governance_revocation_cascade_denies_admission(client: TestClient) -> None:
     """Revoke one module after a successful admit; re-run Tier 1→2→3 → denied."""
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     compose_ok = client.post("/robots/compose", json=_compose_payload())
     composition_ok = RobotComposition.model_validate(compose_ok.json())
@@ -247,8 +464,9 @@ def test_propagation_chain_attestation_fail_to_admission_denied(
     client: TestClient,
 ) -> None:
     """Demo moment: bad module → untrusted robot → denied admission, all recorded."""
-    _enrol(client, "mod-001")
-    _enrol(client, "mod-002")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
+    _enrol_module(client, "mod-002")
 
     client.app.state.module_signers["mod-002"] = SoftwareEd25519Signer()
 
@@ -294,7 +512,8 @@ def test_propagation_chain_attestation_fail_to_admission_denied(
 
 
 def test_tampered_site_verdict_fails_offline_verify(client: TestClient) -> None:
-    _enrol(client, "mod-001")
+    _enrol_vendor(client, "vendor_alpha")
+    _enrol_module(client, "mod-001")
 
     compose_response = client.post(
         "/robots/compose",
