@@ -15,6 +15,7 @@ class AttestationReason(str, Enum):
     CHALLENGE_EXPIRED = "challenge_expired"
     SIGNATURE_INVALID = "signature_invalid"
     UNKNOWN_MODULE = "unknown_module"
+    MODULE_REVOKED = "module_revoked"
 
 
 class ModuleIdentity(BaseModel):

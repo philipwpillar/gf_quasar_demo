@@ -48,6 +48,38 @@ def enrol_module(request_body: EnrolRequest, request: Request) -> EnrolResponse:
     )
 
 
+class RevokeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: str
+    reason: str
+
+
+class RevokeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: str
+    ledger_seq: int
+    revoked_at: str
+
+
+@router.post("/modules/revoke", response_model=RevokeResponse)
+def revoke_module(request_body: RevokeRequest, request: Request) -> RevokeResponse:
+    """Administratively revoke an enrolled module (governance deprovisioning).
+
+    Records a ``decommission`` ledger entry and marks the module revoked so
+    subsequent attestations fail without issuing a challenge. This does NOT
+    prove the physical module is disabled.
+    """
+    attestation: AttestationService = request.app.state.attestation
+    entry = attestation.revoke(request_body.module_id, request_body.reason)
+    return RevokeResponse(
+        module_id=request_body.module_id,
+        ledger_seq=entry.seq,
+        revoked_at=entry.payload["revoked_at"],
+    )
+
+
 @router.post("/attest", response_model=AttestationResult)
 def attest_module(request_body: AttestRequest, request: Request) -> AttestationResult:
     """Run mate-time challenge-response for one enrolled module."""

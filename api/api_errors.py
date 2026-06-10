@@ -5,7 +5,12 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from attestation import AttestationError, DuplicateEnrolmentError, UnknownModuleError
+from attestation import (
+    AttestationError,
+    DuplicateEnrolmentError,
+    ModuleAlreadyRevokedError,
+    UnknownModuleError,
+)
 from corpus import CorpusError, DanglingTelemetryError
 from ledger import ChainBrokenError, LedgerError
 from policy import ClearanceError, MissingModuleSignerError
@@ -36,6 +41,19 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=404,
             content={
                 "error": "unknown_module",
+                "message": str(exc),
+                "module_id": exc.module_id,
+            },
+        )
+
+    @app.exception_handler(ModuleAlreadyRevokedError)
+    async def module_already_revoked_handler(
+        _request: Request, exc: ModuleAlreadyRevokedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "module_already_revoked",
                 "message": str(exc),
                 "module_id": exc.module_id,
             },

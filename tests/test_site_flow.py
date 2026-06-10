@@ -205,6 +205,44 @@ def test_admit_refuses_unsupported_task_or_zone(client: TestClient) -> None:
     assert any("zone_z" in reason for reason in bad_zone_verdict.reasons)
 
 
+def test_governance_revocation_cascade_denies_admission(client: TestClient) -> None:
+    """Revoke one module after a successful admit; re-run Tier 1→2→3 → denied."""
+    _enrol(client, "mod-001")
+    _enrol(client, "mod-002")
+
+    compose_ok = client.post("/robots/compose", json=_compose_payload())
+    composition_ok = RobotComposition.model_validate(compose_ok.json())
+    assert composition_ok.composed is True
+
+    admit_ok = client.post(
+        "/site/admit",
+        json=_admit_payload(robot_composed_seq=composition_ok.ledger_seq),
+    )
+    verdict_ok = SiteAdmissionVerdict.model_validate(admit_ok.json())
+    assert verdict_ok.admitted is True
+
+    revoke_response = client.post(
+        "/modules/revoke",
+        json={"module_id": "mod-002", "reason": "operator revoked module"},
+    )
+    assert revoke_response.status_code == 200
+
+    compose_after = client.post("/robots/compose", json=_compose_payload())
+    composition_after = RobotComposition.model_validate(compose_after.json())
+    assert composition_after.composed is False
+
+    admit_after = client.post(
+        "/site/admit",
+        json=_admit_payload(robot_composed_seq=composition_after.ledger_seq),
+    )
+    verdict_after = SiteAdmissionVerdict.model_validate(admit_after.json())
+    assert verdict_after.admitted is False
+    assert verify_site_verdict(verdict_after) is True
+
+    ledger = client.app.state.ledger
+    assert ledger.verify() == (True, None)
+
+
 def test_propagation_chain_attestation_fail_to_admission_denied(
     client: TestClient,
 ) -> None:

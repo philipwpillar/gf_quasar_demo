@@ -94,6 +94,7 @@ class ClearanceService:
         signers: dict[str, Signer],
     ) -> ClearanceVerdict:
         attestation_refs: list[ModuleAttestationRef] = []
+        attestation_reasons: dict[str, str] = {}
 
         for module_id in request.module_ids:
             signer = signers.get(module_id)
@@ -102,6 +103,7 @@ class ClearanceService:
 
             result = self._attestation.attest(module_id, signer)
             ledger_seq = len(self._ledger)
+            attestation_reasons[module_id] = result.reason.value
             attestation_refs.append(
                 ModuleAttestationRef(
                     module_id=module_id,
@@ -123,8 +125,10 @@ class ClearanceService:
         if not all_attested:
             for ref in attestation_refs:
                 if not ref.attested:
+                    att_reason = attestation_reasons.get(ref.module_id, "unknown")
                     reasons.append(
-                        f"not cleared: module {ref.module_id} failed attestation"
+                        f"not cleared: module {ref.module_id} failed attestation "
+                        f"({att_reason})"
                     )
 
         if not rules_passed:

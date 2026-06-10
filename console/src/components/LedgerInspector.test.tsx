@@ -33,6 +33,19 @@ const entries: LedgerEntry[] = [
     prev_hash: "b".repeat(64),
     entry_hash: "c".repeat(64),
   },
+  {
+    seq: 4,
+    kind: "decommission",
+    occurred_at: "2026-01-01T00:00:03+00:00",
+    config_id: "cfg-demo",
+    payload: {
+      module_id: "mod-synth-002",
+      revoked_at: "2026-01-01T00:00:03+00:00",
+      reason: "operator administrative revocation",
+    },
+    prev_hash: "c".repeat(64),
+    entry_hash: "d".repeat(64),
+  },
 ];
 
 describe("LedgerInspector", () => {
@@ -48,13 +61,15 @@ describe("LedgerInspector", () => {
 
     const list = screen.getByTestId("ledger-entry-list");
     const items = list.querySelectorAll("[data-testid^='ledger-entry-']");
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(4);
     expect(items[0]).toHaveAttribute("data-testid", "ledger-entry-1");
     expect(items[1]).toHaveAttribute("data-testid", "ledger-entry-2");
     expect(items[2]).toHaveAttribute("data-testid", "ledger-entry-3");
+    expect(items[3]).toHaveAttribute("data-testid", "ledger-entry-4");
 
     expect(screen.getByTestId("ledger-verify-result")).toHaveTextContent(
       /Chain intact/i,
     );
+    expect(screen.getByText(/mod-synth-002 revoked at/i)).toBeInTheDocument();
   });
 });

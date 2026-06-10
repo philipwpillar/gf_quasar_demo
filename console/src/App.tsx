@@ -7,6 +7,7 @@ import {
   corruptModuleSigner,
   enrolModule,
   healthCheck,
+  revokeModule,
 } from "./api/quasarApiClient";
 import LedgerInspector, { fetchLedgerState } from "./components/LedgerInspector";
 import ModuleAssemblyPanel from "./components/ModuleAssemblyPanel";
@@ -159,6 +160,23 @@ export default function App() {
     for (const mod of modules) {
       await handleAttestModule(mod.module_id);
     }
+  }
+
+  async function handleRevokeModule(moduleId: string) {
+    await withBusy(async () => {
+      const response = await revokeModule(
+        moduleId,
+        "operator administrative revocation",
+      );
+      setModules((prev) =>
+        prev.map((m) =>
+          m.module_id === moduleId ? { ...m, revoked: true } : m,
+        ),
+      );
+      setStatusMessage(
+        `Module ${response.module_id} revoked at ${response.revoked_at}`,
+      );
+    });
   }
 
   async function handleComposeRobot(robotId: string, isSynthetic: boolean) {
@@ -425,6 +443,7 @@ export default function App() {
                 onEnrolSyntheticModules={handleEnrolSyntheticModules}
                 onAttestModule={handleAttestModule}
                 onAttestAll={handleAttestAll}
+                onRevokeModule={handleRevokeModule}
                 busy={busy}
                 error={null}
               />

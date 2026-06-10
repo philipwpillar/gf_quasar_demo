@@ -17,6 +17,7 @@ RELEVANT_KINDS = frozenset(
         EntryKind.SITE_ADMISSION,
         EntryKind.CLEARANCE_DECISION,
         EntryKind.TELEMETRY,
+        EntryKind.DECOMMISSION,
     }
 )
 
@@ -71,9 +72,15 @@ def build_narrator_context(
                     continue
 
         grounded_on.append(seq)
-        lines.append(f"[seq={seq}] kind={kind} config_id={entry_config}")
-        for key, value in sorted(payload.items()):
-            lines.append(f"  {key}: {value}")
+        if kind == EntryKind.DECOMMISSION.value:
+            lines.append(
+                f"[seq={seq}] module {payload.get('module_id', '?')} revoked at "
+                f"{payload.get('revoked_at', '?')}: {payload.get('reason', '?')}"
+            )
+        else:
+            lines.append(f"[seq={seq}] kind={kind} config_id={entry_config}")
+            for key, value in sorted(payload.items()):
+                lines.append(f"  {key}: {value}")
         lines.append("")
 
     if _asks_about_tampering(question):

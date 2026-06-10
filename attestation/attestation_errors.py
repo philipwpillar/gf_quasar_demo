@@ -19,3 +19,11 @@ class DuplicateEnrolmentError(AttestationError):
     def __init__(self, module_id: str, message: str | None = None) -> None:
         self.module_id = module_id
         super().__init__(message or f"Module already enrolled: {module_id}")
+
+
+class ModuleAlreadyRevokedError(AttestationError):
+    """Raised when revocation is attempted for an already-revoked module."""
+
+    def __init__(self, module_id: str, message: str | None = None) -> None:
+        self.module_id = module_id
+        super().__init__(message or f"Module already revoked: {module_id}")

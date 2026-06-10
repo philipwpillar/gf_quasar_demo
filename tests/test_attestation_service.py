@@ -8,7 +8,9 @@ from attestation import (
     AttestationReason,
     AttestationService,
     DuplicateEnrolmentError,
+    ModuleAlreadyRevokedError,
     SoftwareEd25519Signer,
+    UnknownModuleError,
 )
 from ledger import EntryKind, Ledger
 
@@ -117,6 +119,68 @@ def test_duplicate_enrol_raises() -> None:
 
     with pytest.raises(DuplicateEnrolmentError):
         service.enrol("mod-001", SoftwareEd25519Signer())
+
+
+class _SpySigner(SoftwareEd25519Signer):
+    """Counts how many times sign() is invoked."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.sign_calls = 0
+
+    def sign(self, nonce: bytes) -> bytes:
+        self.sign_calls += 1
+        return super().sign(nonce)
+
+
+def test_revoke_appends_decommission_entry() -> None:
+    service, ledger = _service()
+    signer = SoftwareEd25519Signer()
+    service.enrol("mod-001", signer)
+
+    entry = service.revoke("mod-001", "operator deprovisioned")
+
+    assert entry.kind == EntryKind.DECOMMISSION
+    assert entry.payload["module_id"] == "mod-001"
+    assert entry.payload["reason"] == "operator deprovisioned"
+    assert "revoked_at" in entry.payload
+    assert service.is_revoked("mod-001") is True
+    assert ledger.verify() == (True, None)
+
+
+def test_attest_after_revoke_returns_module_revoked_without_signing() -> None:
+    service, ledger = _service()
+    spy = _SpySigner()
+    service.enrol("mod-001", spy)
+    service.revoke("mod-001", "governance action")
+
+    result = service.attest("mod-001", spy)
+
+    assert result.verified is False
+    assert result.reason == AttestationReason.MODULE_REVOKED
+    assert result.challenge_nonce_hex == ""
+    assert spy.sign_calls == 0
+    attestation_entry = ledger.get(len(ledger))
+    assert attestation_entry.kind == EntryKind.ATTESTATION
+    assert attestation_entry.payload["reason"] == "module_revoked"
+    assert ledger.verify() == (True, None)
+
+
+def test_revoke_unknown_module_raises() -> None:
+    service, _ledger = _service()
+
+    with pytest.raises(UnknownModuleError):
+        service.revoke("mod-missing", "reason")
+
+
+def test_double_revoke_raises() -> None:
+    service, _ledger = _service()
+    signer = SoftwareEd25519Signer()
+    service.enrol("mod-001", signer)
+    service.revoke("mod-001", "first revoke")
+
+    with pytest.raises(ModuleAlreadyRevokedError):
+        service.revoke("mod-001", "second revoke")
 
 
 def test_stale_attestation_via_clock_skew_simulation() -> None:

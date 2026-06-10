@@ -25,6 +25,23 @@ function kindIndex(kind: EntryKind): number {
   return idx === -1 ? ENTRY_KIND_ORDER.length : idx;
 }
 
+function entrySummary(entry: LedgerEntry): string | null {
+  if (entry.kind !== "decommission") {
+    return null;
+  }
+  const moduleId = entry.payload.module_id;
+  const revokedAt = entry.payload.revoked_at;
+  const reason = entry.payload.reason;
+  if (
+    typeof moduleId !== "string" ||
+    typeof revokedAt !== "string" ||
+    typeof reason !== "string"
+  ) {
+    return null;
+  }
+  return `Module ${moduleId} revoked at ${revokedAt}: ${reason}`;
+}
+
 export default function LedgerInspector({
   entries,
   verifyResult,
@@ -160,6 +177,9 @@ export default function LedgerInspector({
                 </span>
                 <span className="text-xs text-ink-faint">{entry.occurred_at}</span>
               </div>
+              {entrySummary(entry) && (
+                <p className="mt-2 text-sm text-ink-secondary">{entrySummary(entry)}</p>
+              )}
               <pre className="ledger-pre">{JSON.stringify(entry.payload, null, 2)}</pre>
               <p className="mt-2 font-mono text-xs text-ink-faint">
                 prev {entry.prev_hash.slice(0, 12)}… → hash {entry.entry_hash.slice(0, 12)}…

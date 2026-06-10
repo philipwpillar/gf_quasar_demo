@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from ledger import EntryKind, Ledger
+from ledger import EntryKind, Ledger, LedgerEntry
 
 from attestation.attestation_core import issue_challenge, verify_response
-from attestation.attestation_errors import DuplicateEnrolmentError
+from attestation.attestation_errors import (
+    DuplicateEnrolmentError,
+    ModuleAlreadyRevokedError,
+    UnknownModuleError,
+)
 from attestation.attestation_models import (
     AttestationReason,
     AttestationResult,
@@ -37,6 +41,7 @@ class AttestationService:
         self._ledger = ledger
         self._config_id = config_id
         self._registry: dict[str, ModuleIdentity] = {}
+        self._revoked: set[str] = set()
 
     @property
     def registry(self) -> dict[str, ModuleIdentity]:
@@ -45,6 +50,35 @@ class AttestationService:
 
     def is_enrolled(self, module_id: str) -> bool:
         return module_id in self._registry
+
+    def is_revoked(self, module_id: str) -> bool:
+        return module_id in self._revoked
+
+    def revoke(self, module_id: str, reason: str) -> LedgerEntry:
+        """Administratively revoke a module — registry status + forensic ledger record.
+
+        This is governance deprovisioning: the enrolled module is marked revoked
+        and a ``decommission`` entry is appended. It does NOT prove the physical
+        module is disabled; that requires a future kill-and-prove-dead protocol.
+        """
+        if module_id not in self._registry:
+            raise UnknownModuleError(module_id)
+        if module_id in self._revoked:
+            raise ModuleAlreadyRevokedError(module_id)
+
+        revoked_at = datetime.now(timezone.utc)
+        entry = self._ledger.append(
+            EntryKind.DECOMMISSION,
+            self._config_id,
+            {
+                "module_id": module_id,
+                "reason": reason,
+                "revoked_at": revoked_at.isoformat(),
+            },
+            occurred_at=revoked_at,
+        )
+        self._revoked.add(module_id)
+        return entry
 
     def enrol(self, module_id: str, signer: Signer) -> ModuleIdentity:
         """Register a module's public key and append ``module_enrolled`` to the ledger."""
@@ -76,6 +110,17 @@ class AttestationService:
                 module_id=module_id,
                 verified=False,
                 reason=AttestationReason.UNKNOWN_MODULE,
+                challenge_nonce_hex="",
+                verified_at=verified_at,
+            )
+            self._append_attestation(result)
+            return result
+
+        if module_id in self._revoked:
+            result = AttestationResult(
+                module_id=module_id,
+                verified=False,
+                reason=AttestationReason.MODULE_REVOKED,
                 challenge_nonce_hex="",
                 verified_at=verified_at,
             )

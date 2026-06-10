@@ -11,6 +11,7 @@ from attestation.attestation_core import issue_challenge, verify_response
 from attestation.attestation_errors import (
     AttestationError,
     DuplicateEnrolmentError,
+    ModuleAlreadyRevokedError,
     UnknownModuleError,
 )
 from attestation.attestation_models import (
@@ -29,6 +30,7 @@ __all__ = [
     "AttestationService",
     "Challenge",
     "DuplicateEnrolmentError",
+    "ModuleAlreadyRevokedError",
     "ModuleIdentity",
     "Signer",
     "SoftwareEd25519Signer",

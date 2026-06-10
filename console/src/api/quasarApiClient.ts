@@ -4,6 +4,7 @@ import type {
   ClearanceVerdict,
   ComposeRobotRequest,
   EnrolResponse,
+  RevokeModuleResponse,
   LedgerEntry,
   LedgerVerifyResponse,
   NarratorAnswer,
@@ -54,6 +55,16 @@ export async function enrolModule(moduleId: string): Promise<EnrolResponse> {
   return requestJson("/modules/enrol", {
     method: "POST",
     body: JSON.stringify({ module_id: moduleId }),
+  });
+}
+
+export async function revokeModule(
+  moduleId: string,
+  reason: string,
+): Promise<RevokeModuleResponse> {
+  return requestJson("/modules/revoke", {
+    method: "POST",
+    body: JSON.stringify({ module_id: moduleId, reason }),
   });
 }
 

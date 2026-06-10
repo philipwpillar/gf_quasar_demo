@@ -8,6 +8,7 @@ interface ModuleAssemblyPanelProps {
   onEnrolSyntheticModules: () => void;
   onAttestModule: (moduleId: string) => void;
   onAttestAll: () => void;
+  onRevokeModule: (moduleId: string) => void;
   busy: boolean;
   error: string | null;
 }
@@ -43,6 +44,7 @@ export default function ModuleAssemblyPanel({
   onEnrolSyntheticModules,
   onAttestModule,
   onAttestAll,
+  onRevokeModule,
   busy,
   error,
 }: ModuleAssemblyPanelProps) {
@@ -126,6 +128,11 @@ export default function ModuleAssemblyPanel({
                             Synthetic
                           </span>
                         )}
+                        {mod.revoked && (
+                          <span className="rounded-md border border-trust-fail-border bg-trust-fail-bg px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-trust-fail-text">
+                            Revoked
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 font-mono text-xs text-ink-muted break-all">
                         {mod.public_key_hex}
@@ -145,14 +152,24 @@ export default function ModuleAssemblyPanel({
                         reason: {mod.attestation.reason}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => onAttestModule(mod.module_id)}
-                      className="btn-secondary px-2 py-1 text-xs"
-                    >
-                      Attest
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || mod.revoked}
+                        onClick={() => onAttestModule(mod.module_id)}
+                        className="btn-secondary px-2 py-1 text-xs"
+                      >
+                        Attest
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy || mod.revoked}
+                        onClick={() => onRevokeModule(mod.module_id)}
+                        className="rounded-md border border-trust-fail-border bg-trust-fail-bg px-2 py-1 text-xs font-medium text-trust-fail-text hover:opacity-90 disabled:opacity-50"
+                      >
+                        Revoke
+                      </button>
+                    </div>
                   </div>
                 </div>
               </li>

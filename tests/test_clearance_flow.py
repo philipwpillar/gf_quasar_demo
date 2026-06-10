@@ -73,6 +73,54 @@ def test_clearance_flow_all_good(client: TestClient) -> None:
     assert ledger.verify() == (True, None)
 
 
+def test_clearance_blocked_when_module_revoked(client: TestClient) -> None:
+    _enrol(client, "mod-001")
+    _enrol(client, "mod-002")
+
+    revoke_response = client.post(
+        "/modules/revoke",
+        json={"module_id": "mod-002", "reason": "governance deprovision"},
+    )
+    assert revoke_response.status_code == 200
+    assert revoke_response.json()["module_id"] == "mod-002"
+
+    response = client.post("/clearance", json=_clearance_payload())
+    assert response.status_code == 200
+
+    verdict = ClearanceVerdict.model_validate(response.json())
+    assert verdict.cleared is False
+    assert any("module_revoked" in reason for reason in verdict.reasons)
+    assert verify_verdict(verdict) is True
+
+    ledger = client.app.state.ledger
+    assert ledger.verify() == (True, None)
+
+
+def test_revoke_api_unknown_module_returns_404(client: TestClient) -> None:
+    response = client.post(
+        "/modules/revoke",
+        json={"module_id": "mod-missing", "reason": "test"},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"] == "unknown_module"
+
+
+def test_revoke_api_double_revoke_returns_409(client: TestClient) -> None:
+    _enrol(client, "mod-001")
+    first = client.post(
+        "/modules/revoke",
+        json={"module_id": "mod-001", "reason": "first"},
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/modules/revoke",
+        json={"module_id": "mod-001", "reason": "second"},
+    )
+    assert second.status_code == 409
+    assert second.json()["error"] == "module_already_revoked"
+
+
 def test_clearance_blocked_when_one_module_fails_attestation(
     client: TestClient,
 ) -> None:

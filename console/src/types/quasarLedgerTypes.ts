@@ -92,7 +92,8 @@ export type AttestationReason =
   | "ok"
   | "challenge_expired"
   | "signature_invalid"
-  | "unknown_module";
+  | "unknown_module"
+  | "module_revoked";
 
 export interface AttestationResult {
   module_id: string;
@@ -107,11 +108,18 @@ export interface EnrolResponse {
   public_key_hex: string;
 }
 
+export interface RevokeModuleResponse {
+  module_id: string;
+  ledger_seq: number;
+  revoked_at: string;
+}
+
 export interface EnrolledModule {
   module_id: string;
   public_key_hex: string;
   isRealSecureElement: boolean;
   isSynthetic: boolean;
+  revoked?: boolean;
   attestation?: AttestationResult;
 }
 
